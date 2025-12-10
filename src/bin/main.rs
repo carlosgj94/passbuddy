@@ -22,7 +22,6 @@ use mipidsi::options::Orientation;
 use static_cell::StaticCell;
 use {esp_backtrace as _, esp_println as _};
 
-extern crate alloc;
 use passbuddy::display;
 
 static SPI_BUFFER: StaticCell<[u8; 512]> = StaticCell::new();
