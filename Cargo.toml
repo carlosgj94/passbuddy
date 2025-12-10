@@ -33,7 +33,20 @@ esp-println = { version = "0.16.1", features = ["defmt-espflash", "esp32s3"] }
 
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
+
+### Encryption deps
 nb = "1.1.0"
+
+### Ratatui deps
+embedded-hal-bus = { version = "0.3" }
+embedded-graphics = "0.8.1"
+mipidsi = "0.9.0"
+mousefood = { git = "https://github.com/j-g00da/mousefood", rev = "cc9f8fe372f09342537bc31a1355f77f2693d70b", default-features = false, features = [
+    "fonts",
+] }
+ratatui = { version = "0.30.0-alpha.5", default-features = false, features = ["portable-atomic"] }
+
+
 
 
 [profile.dev]
