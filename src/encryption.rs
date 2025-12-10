@@ -1,5 +1,3 @@
-#![no_std]
-
 use esp_hal::{
     hmac::{Hmac, HmacPurpose, KeyId},
     rng::Rng,
