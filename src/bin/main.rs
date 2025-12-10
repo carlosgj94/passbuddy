@@ -8,7 +8,6 @@
 
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_time::{Duration, Timer};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Level, Output, OutputConfig};
@@ -20,15 +19,11 @@ use mipidsi::Builder;
 use mipidsi::interface::SpiInterface;
 use mipidsi::models::ST7789;
 use mipidsi::options::Orientation;
-// use mousefood::prelude::Rgb565;
-use mousefood::{EmbeddedBackend, EmbeddedBackendConfig, fonts};
-use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, List, ListState};
-use ratatui::{Frame, Terminal};
 use static_cell::StaticCell;
 use {esp_backtrace as _, esp_println as _};
 
 extern crate alloc;
+use passbuddy::display;
 
 static SPI_BUFFER: StaticCell<[u8; 512]> = StaticCell::new();
 
@@ -81,25 +76,12 @@ async fn main(spawner: Spawner) -> ! {
         .set_orientation(Orientation::default().rotate(mipidsi::options::Rotation::Deg90))
         .unwrap();
 
-    // display.clear(Rgb565::BLACK).unwrap();
+    let mut state = display::initial_state();
+    let mut terminal = display::init_terminal(&mut display);
 
-    let mut state = ListState::default();
-    state.select_first();
-
-    let backend = EmbeddedBackend::new(
-        &mut display,
-        EmbeddedBackendConfig {
-            font_regular: fonts::MONO_9X18,
-            font_bold: Some(fonts::MONO_9X18_BOLD),
-            font_italic: None,
-            ..Default::default()
-        },
-    );
-
-    let mut terminal = Terminal::new(backend).unwrap();
-
+    // TODO: Move the drawing inside an embassy task
     terminal
-        .draw(|frame| draw(frame, &mut state))
+        .draw(|frame| display::draw_menu(frame, &mut state))
         .expect("to draw");
 
     // 3. Let's initialize the input devices
@@ -107,24 +89,5 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Spawn some tasks
     let _ = spawner;
 
-    loop {
-        info!("Hello world!");
-        Timer::after(Duration::from_secs(1)).await;
-    }
-
-    // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples/src/bin
-}
-
-fn draw(frame: &mut Frame, state: &mut ListState) {
-    let outer_block = Block::bordered()
-        .border_style(Style::new().bold().green())
-        .title(" Select Database ");
-
-    let items = ["Personal", "Work", "Shared"];
-    let list = List::new(items)
-        .block(outer_block)
-        .style(Style::new())
-        .highlight_style(Style::new().bold().bg(Color::Green).italic())
-        .highlight_symbol(">> ");
-    frame.render_stateful_widget(list, frame.area(), state);
+    loop {}
 }
