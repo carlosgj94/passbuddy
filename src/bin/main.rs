@@ -9,8 +9,8 @@
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
-use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
+use esp_hal::{clock::CpuClock, hmac::Hmac};
 use {esp_backtrace as _, esp_println as _};
 
 extern crate alloc;
@@ -32,6 +32,9 @@ async fn main(spawner: Spawner) -> ! {
     esp_rtos::start(timg0.timer0);
 
     info!("Embassy initialized!");
+
+    // 1. Get the peripherals declared
+    let mut _hmac = Hmac::new(peripherals.HMAC);
 
     // TODO: Spawn some tasks
     let _ = spawner;

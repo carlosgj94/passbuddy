@@ -33,6 +33,7 @@ esp-println = { version = "0.16.1", features = ["defmt-espflash", "esp32s3"] }
 
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
+nb = "1.1.0"
 
 
 [profile.dev]
