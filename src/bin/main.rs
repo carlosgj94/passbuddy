@@ -20,6 +20,7 @@ use mipidsi::Builder;
 use mipidsi::interface::SpiInterface;
 use mipidsi::models::ST7789;
 use mipidsi::options::Orientation;
+use passbuddy::storage::layout::StorageLayout;
 use static_cell::StaticCell;
 use {esp_backtrace as _, esp_println as _};
 
@@ -85,7 +86,9 @@ async fn main(spawner: Spawner) -> ! {
         .expect("to draw");
 
     // 4. Let's initialize the storage
-    let mut _storage = FlashStorage::new(peripherals.FLASH);
+    let mut storage = FlashStorage::new(peripherals.FLASH);
+    let memory_layout_healthcheck = StorageLayout::run_healthcheck(&mut storage);
+    let mut layout = StorageLayout::new(&mut storage);
 
     // 3. Let's initialize the input devices
 

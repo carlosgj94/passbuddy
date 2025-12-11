@@ -31,10 +31,6 @@ impl StorageLayout {
             .read(offset, &mut header_buffer)
             .expect("Read failed");
 
-        // 2.1 Check if it's zero and if it is, then write a new header and regions
-        //TODO
-
-        //2.2 Create the header
         let layout_header = get_layout_header_from_bytes(&header_buffer);
         offset += mem::size_of::<LayoutHeader>() as u32;
 
@@ -60,6 +56,18 @@ impl StorageLayout {
             },
             regions,
         }
+    }
+    pub fn run_healthcheck(storage: &mut FlashStorage) -> Result<(), StorageError> {
+        let mut offset = get_user_storage_offset(storage);
+
+        // 2. Read the header from the storage layout
+        let mut header_buffer = [0u8; mem::size_of::<LayoutHeader>()];
+        storage
+            .read(offset, &mut header_buffer)
+            .expect("Read failed");
+
+        // 3. We check the header magic is correct
+        todo!();
     }
 }
 
