@@ -16,7 +16,10 @@ pub enum DataRegion {
 pub struct RegionDescriptor {
     pub kind: DataRegion,
     pub offset: u32,
-    pub len: u32,
+    /// Total bytes reserved for this region in flash.
+    pub capacity: u32,
+    /// Bytes currently used (header + ciphertext). 0 means empty/uninitialized.
+    pub used_len: u32,
     pub crc32: u32,
 }
 
