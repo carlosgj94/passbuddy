@@ -25,9 +25,6 @@ use {esp_backtrace as _, esp_println as _};
 
 use passbuddy::display;
 
-// This offset is used so the storage writes don't overlap with the bootloader and flash.
-const STORAGE_OFFSET: i32 = 0x200000;
-
 static SPI_BUFFER: StaticCell<[u8; 512]> = StaticCell::new();
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
@@ -88,7 +85,7 @@ async fn main(spawner: Spawner) -> ! {
         .expect("to draw");
 
     // 4. Let's initialize the storage
-    let mut storage = FlashStorage::new(peripherals.FLASH);
+    let mut _storage = FlashStorage::new(peripherals.FLASH);
 
     // 3. Let's initialize the input devices
 
