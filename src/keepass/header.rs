@@ -1,6 +1,8 @@
 use super::error::KDBError;
 
-#[derive(Debug)]
+use defmt::Format;
+
+#[derive(Clone, Copy, Format)]
 pub struct KDBHeader {
     // https://gist.github.com/lgg/e6ccc6e212d18dd2ecd8a8c116fb1e45
     pub flags: u32,
