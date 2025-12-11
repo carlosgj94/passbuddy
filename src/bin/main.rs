@@ -15,6 +15,7 @@ use esp_hal::spi::{Mode as SpiMode, master::Config as SpiConfig, master::Spi};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::{clock::CpuClock, hmac::Hmac};
+use esp_storage::FlashStorage;
 use mipidsi::Builder;
 use mipidsi::interface::SpiInterface;
 use mipidsi::models::ST7789;
@@ -23,6 +24,9 @@ use static_cell::StaticCell;
 use {esp_backtrace as _, esp_println as _};
 
 use passbuddy::display;
+
+// This offset is used so the storage writes don't overlap with the bootloader and flash.
+const STORAGE_OFFSET: i32 = 0x200000;
 
 static SPI_BUFFER: StaticCell<[u8; 512]> = StaticCell::new();
 
@@ -82,6 +86,9 @@ async fn main(spawner: Spawner) -> ! {
     terminal
         .draw(|frame| display::draw_menu(frame, &mut state))
         .expect("to draw");
+
+    // 4. Let's initialize the storage
+    let mut storage = FlashStorage::new(peripherals.FLASH);
 
     // 3. Let's initialize the input devices
 
