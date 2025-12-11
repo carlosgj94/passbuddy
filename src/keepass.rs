@@ -1,9 +1,11 @@
+pub mod db;
 pub mod entry;
 pub mod error;
 pub mod group;
 pub mod header;
 pub mod times;
 
+pub use db::KeePassDb;
 pub use entry::Entry;
 pub use error::KDBError;
 pub use group::Group;
