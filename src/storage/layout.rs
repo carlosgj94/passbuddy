@@ -1,42 +1,62 @@
+use core::mem;
+
 use defmt::Format;
+use embedded_storage::ReadStorage;
+use esp_storage::FlashStorage;
 
-use crate::storage::header::{LayoutHeader, STORAGE_LAYOUT_VERSION};
+use crate::storage::{
+    header::{
+        LayoutHeader, STORAGE_LAYOUT_VERSION, get_layout_header_from_bytes, get_user_storage_offset,
+    },
+    region::{RegionDescriptor, get_region_descriptor_from_bytes},
+};
 
-/// Regions we plan to keep in flash. Add more as the layout evolves.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
-pub enum DataRegion {
-    ProjectConfig,
-    UserConfig,
-    KeePassDb,
-    Scratch,
-}
-
-/// Describes where a region lives in flash.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
-pub struct RegionDescriptor {
-    pub kind: DataRegion,
-    pub offset: u32,
-    /// Total bytes reserved for this region in flash.
-    pub capacity: u32,
-    /// Bytes currently used (header + ciphertext). 0 means empty/uninitialized.
-    pub used_len: u32,
-    pub crc32: u32,
-}
+pub const REGION_COUNT: usize = 4;
 
 /// Fixed set of descriptors baked into firmware for now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
-pub struct StorageLayout<const N: usize> {
+pub struct StorageLayout {
     pub header: LayoutHeader,
-    pub regions: [RegionDescriptor; N],
+    pub regions: [RegionDescriptor; REGION_COUNT],
 }
 
-impl<const N: usize> StorageLayout<N> {
-    pub const fn new(regions: [RegionDescriptor; N]) -> Self {
+impl StorageLayout {
+    pub fn new(storage: &mut FlashStorage) -> Self {
+        // 1. Go to the storage layout and ensure we read the header
+        let mut offset = get_user_storage_offset(storage);
+
+        // 2. Read the header from the storage layout
+        let mut header_buffer = [0u8; mem::size_of::<LayoutHeader>()];
+        storage
+            .read(offset, &mut header_buffer)
+            .expect("Read failed");
+
+        // 2.1 Check if it's zero and if it is, then write a new header and regions
+        //TODO
+
+        //2.2 Create the header
+        let layout_header = get_layout_header_from_bytes(&header_buffer);
+        offset += mem::size_of::<LayoutHeader>() as u32;
+
+        // 3. Read the fixed set of region descriptors
+        let mut current_offset = offset;
+        let mut regions = [RegionDescriptor::empty(); REGION_COUNT];
+        for idx in 0..REGION_COUNT {
+            let mut region_buffer = [0u8; mem::size_of::<RegionDescriptor>()];
+            storage
+                .read(current_offset, &mut region_buffer)
+                .expect("region reading failed");
+
+            current_offset += mem::size_of::<RegionDescriptor>() as u32;
+            regions[idx] = get_region_descriptor_from_bytes(&region_buffer);
+        }
+
         Self {
             header: LayoutHeader {
                 magic: super::header::STORAGE_MAGIC,
                 layout_version: STORAGE_LAYOUT_VERSION,
-                region_count: N as u8,
+                region_count: REGION_COUNT as u8,
+                ..layout_header
             },
             regions,
         }
