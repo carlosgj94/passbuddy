@@ -47,6 +47,7 @@ async fn main(spawner: Spawner) -> ! {
     info!("Embassy initialized!");
 
     // 1. Get the peripherals declared
+    info!("Declared peripherals");
     let mut _hmac = Hmac::new(peripherals.HMAC);
     let spi = Spi::new(
         peripherals.SPI2,
@@ -59,6 +60,7 @@ async fn main(spawner: Spawner) -> ! {
     .with_mosi(peripherals.GPIO7);
 
     // 2. Let's initialize the display
+    info!("Initializing display");
     let cs = Output::new(peripherals.GPIO10, Level::Low, OutputConfig::default());
     let dc = Output::new(peripherals.GPIO4, Level::Low, OutputConfig::default());
     let reset = Output::new(peripherals.GPIO5, Level::Low, OutputConfig::default());
@@ -81,21 +83,28 @@ async fn main(spawner: Spawner) -> ! {
     let mut terminal = display::init_terminal(&mut display);
 
     // TODO: Move the drawing inside an embassy task
+    info!("Drawing menu");
     terminal
         .draw(|frame| display::draw_menu(frame, &mut state))
         .expect("to draw");
 
     // 4. Let's initialize the storage
+    info!("Initializing storage");
     let mut storage = FlashStorage::new(peripherals.FLASH);
     match StorageLayout::run_healthcheck(&mut storage) {
-        Ok(_) => {}
+        Ok(_) => {
+            info!("Storage found; good to read");
+        }
         Err(_) => {
             // The decive needs to be writen
+            info!("Storage not found; initializing");
             StorageLayout::bootstrap_storage_write(&mut storage)
                 .expect("initial storage bootstraping error");
         }
     }
-    let mut _layout = StorageLayout::new(&mut storage);
+    let layout = StorageLayout::new(&mut storage);
+    let magic_str = core::str::from_utf8(&layout.header.magic).unwrap_or("<invalid utf8>");
+    info!("magic: {=str}", magic_str);
 
     // 3. Let's initialize the input devices
 
