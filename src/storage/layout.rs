@@ -1,15 +1,13 @@
-use core::mem;
-
 use defmt::Format;
 use embedded_storage::ReadStorage;
 use esp_storage::FlashStorage;
 
 use crate::storage::{
     header::{
-        LayoutHeader, STORAGE_LAYOUT_VERSION, STORAGE_MAGIC, get_user_storage_offset,
-        storage_magic_offset,
+        LAYOUT_HEADER_SIZE, LayoutHeader, STORAGE_LAYOUT_VERSION, STORAGE_MAGIC,
+        get_user_storage_offset, storage_magic_offset,
     },
-    region::RegionDescriptor,
+    region::{REGION_DESCRIPTOR_SIZE, RegionDescriptor},
 };
 use embedded_storage::Storage;
 
@@ -28,24 +26,24 @@ impl StorageLayout {
         let mut offset = get_user_storage_offset();
 
         // 2. Read the header from the storage layout
-        let mut header_buffer = [0u8; mem::size_of::<LayoutHeader>()];
+        let mut header_buffer = [0u8; LAYOUT_HEADER_SIZE];
         storage
             .read(offset, &mut header_buffer)
             .expect("Read failed");
 
         let layout_header = LayoutHeader::new_from_bytes(&header_buffer);
-        offset += mem::size_of::<LayoutHeader>() as u32;
+        offset += LAYOUT_HEADER_SIZE as u32;
 
         // 3. Read the fixed set of region descriptors
         let mut current_offset = offset;
         let mut regions = [RegionDescriptor::empty(); REGION_COUNT];
         for idx in 0..REGION_COUNT {
-            let mut region_buffer = [0u8; mem::size_of::<RegionDescriptor>()];
+            let mut region_buffer = [0u8; REGION_DESCRIPTOR_SIZE];
             storage
                 .read(current_offset, &mut region_buffer)
                 .expect("region reading failed");
 
-            current_offset += mem::size_of::<RegionDescriptor>() as u32;
+            current_offset += REGION_DESCRIPTOR_SIZE as u32;
             regions[idx] = RegionDescriptor::new_from_bytes(&region_buffer);
         }
 
@@ -103,21 +101,21 @@ impl StorageLayout {
         let scratch_region = RegionDescriptor::empty_with_kind(super::region::DataRegion::Scratch);
 
         // 5. Write the regions to the storage layout
-        regions_offset += mem::size_of::<LayoutHeader>() as u32;
+        regions_offset += LAYOUT_HEADER_SIZE as u32;
         storage
             .write(regions_offset, &project_region.to_bytes())
             .expect("project region write failed");
-        regions_offset += project_region.to_bytes().len() as u32;
+        regions_offset += REGION_DESCRIPTOR_SIZE as u32;
 
         storage
             .write(regions_offset, &user_config_region.to_bytes())
             .expect("user config region write failed");
-        regions_offset += user_config_region.to_bytes().len() as u32;
+        regions_offset += REGION_DESCRIPTOR_SIZE as u32;
 
         storage
             .write(regions_offset, &keepass_region.to_bytes())
             .expect("keepass region write failed");
-        regions_offset += keepass_region.to_bytes().len() as u32;
+        regions_offset += REGION_DESCRIPTOR_SIZE as u32;
 
         storage
             .write(regions_offset, &scratch_region.to_bytes())

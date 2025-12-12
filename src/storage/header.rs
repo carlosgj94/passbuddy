@@ -4,6 +4,7 @@ use defmt::Format;
 const STORAGE_OFFSET: u32 = 0x200000;
 pub const STORAGE_MAGIC: [u8; 4] = *b"PBDY";
 pub const STORAGE_LAYOUT_VERSION: u16 = 1;
+pub(crate) const LAYOUT_HEADER_SIZE: usize = 8;
 
 /// Small header to sit ahead of the descriptors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
@@ -34,15 +35,15 @@ pub(crate) const fn get_user_storage_offset() -> u32 {
 }
 
 impl LayoutHeader {
-    pub(crate) fn new_from_bytes(bytes: &[u8; core::mem::size_of::<LayoutHeader>()]) -> Self {
+    pub(crate) fn new_from_bytes(bytes: &[u8; LAYOUT_HEADER_SIZE as usize]) -> Self {
         LayoutHeader {
             magic: bytes[0..4].try_into().unwrap(),
             layout_version: u16::from_le_bytes(bytes[4..6].try_into().unwrap()),
             region_count: bytes[6],
         }
     }
-    pub(crate) fn get_bytes(&self) -> [u8; core::mem::size_of::<LayoutHeader>()] {
-        let mut bytes = [0u8; core::mem::size_of::<LayoutHeader>()];
+    pub(crate) fn get_bytes(&self) -> [u8; LAYOUT_HEADER_SIZE] {
+        let mut bytes = [0u8; LAYOUT_HEADER_SIZE];
         bytes[0..4].copy_from_slice(&self.magic);
         bytes[4..6].copy_from_slice(&self.layout_version.to_le_bytes());
         bytes[6] = self.region_count;

@@ -1,5 +1,7 @@
 use defmt::Format;
 
+pub(crate) const REGION_DESCRIPTOR_SIZE: usize = 20;
+
 /// Regions we plan to keep in flash. Add more as the layout evolves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 #[repr(u8)]
@@ -43,7 +45,7 @@ impl RegionDescriptor {
         }
     }
 
-    pub(crate) fn new_from_bytes(bytes: &[u8; core::mem::size_of::<RegionDescriptor>()]) -> Self {
+    pub(crate) fn new_from_bytes(bytes: &[u8; REGION_DESCRIPTOR_SIZE]) -> Self {
         let kind = match bytes[0] {
             0 => DataRegion::ProjectConfig,
             1 => DataRegion::UserConfig,
@@ -59,8 +61,8 @@ impl RegionDescriptor {
             crc32: u32::from_le_bytes(bytes[13..17].try_into().unwrap()),
         }
     }
-    pub(crate) fn to_bytes(&self) -> [u8; core::mem::size_of::<RegionDescriptor>()] {
-        let mut bytes = [0u8; core::mem::size_of::<RegionDescriptor>()];
+    pub(crate) fn to_bytes(&self) -> [u8; REGION_DESCRIPTOR_SIZE] {
+        let mut bytes = [0u8; REGION_DESCRIPTOR_SIZE];
         bytes[0] = self.kind as u8;
         bytes[1..5].copy_from_slice(&self.offset.to_le_bytes());
         bytes[5..9].copy_from_slice(&self.capacity.to_le_bytes());
