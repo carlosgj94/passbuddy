@@ -24,7 +24,7 @@ pub struct Entry {
     pub url: HStr<128>,
 
     pub notes: HStr<256>,
-    pub icon_id: u32,
+    pub icon_id: Option<u32>,
     pub times: Times,
     pub autotype: Option<AutoType>,
 }
