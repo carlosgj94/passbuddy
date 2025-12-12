@@ -5,7 +5,10 @@ use embedded_storage::ReadStorage;
 use esp_storage::FlashStorage;
 
 use crate::storage::{
-    header::{LayoutHeader, STORAGE_LAYOUT_VERSION, STORAGE_MAGIC, get_user_storage_offset},
+    header::{
+        LayoutHeader, STORAGE_LAYOUT_VERSION, STORAGE_MAGIC, get_user_storage_offset,
+        storage_magic_offset,
+    },
     region::RegionDescriptor,
 };
 use embedded_storage::Storage;
@@ -22,7 +25,7 @@ pub struct StorageLayout {
 impl StorageLayout {
     pub fn new(storage: &mut FlashStorage) -> Self {
         // 1. Go to the storage layout and ensure we read the header
-        let mut offset = get_user_storage_offset(storage);
+        let mut offset = get_user_storage_offset();
 
         // 2. Read the header from the storage layout
         let mut header_buffer = [0u8; mem::size_of::<LayoutHeader>()];
@@ -57,16 +60,12 @@ impl StorageLayout {
         }
     }
     pub fn run_healthcheck(storage: &mut FlashStorage) -> Result<(), StorageError> {
-        let offset = get_user_storage_offset(storage);
-
-        // 2. Read the header from the storage layout
         let mut magic_buffer = [0u8; 4];
         storage
-            .read(offset, &mut magic_buffer)
+            .read(storage_magic_offset(), &mut magic_buffer)
             .expect("Read failed");
 
-        // 3. We check the header magic is correct
-        if magic_buffer != &STORAGE_MAGIC[..] {
+        if magic_buffer != STORAGE_MAGIC {
             return Err(StorageError::BadMagic);
         }
 
@@ -75,14 +74,9 @@ impl StorageLayout {
     }
 
     pub fn bootstrap_storage_write(storage: &mut FlashStorage) -> Result<(), StorageError> {
-        let offset = get_user_storage_offset(storage);
-
-        // 1. First thing is writing the magic number
         storage
-            .write(offset, &STORAGE_MAGIC)
+            .write(storage_magic_offset(), &STORAGE_MAGIC)
             .expect("Storage magic write failed");
-
-        let header_offset = offset + mem::size_of::<u32>() as u32;
 
         // 2. Create the header
         let header = LayoutHeader {
@@ -93,12 +87,13 @@ impl StorageLayout {
 
         // 3. Write the header to the storage layout
         storage
-            .write(header_offset, &header.get_bytes())
+            .write(get_user_storage_offset(), &header.get_bytes())
             .expect("Write failed");
 
         // 4. Initialize the regions
-        let mut regions_offset = header_offset;
+        let mut regions_offset = get_user_storage_offset();
 
+        // TODO: Assign real region `offset`/`capacity` values (aligned and non-overlapping).
         let project_region =
             RegionDescriptor::empty_with_kind(super::region::DataRegion::ProjectConfig);
         let user_config_region =

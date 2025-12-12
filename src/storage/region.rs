@@ -19,6 +19,7 @@ pub struct RegionDescriptor {
     pub capacity: u32,
     /// Bytes currently used (header + ciphertext). 0 means empty/uninitialized.
     pub used_len: u32,
+    /// TODO: Populate/validate CRC32 for region contents.
     pub crc32: u32,
 }
 

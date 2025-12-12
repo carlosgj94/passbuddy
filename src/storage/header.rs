@@ -1,6 +1,4 @@
 use defmt::Format;
-use embedded_storage::{ReadStorage, Storage};
-use esp_storage::FlashStorage;
 
 // This offset is used so the storage writes don't overlap with the bootloader and flash.
 const STORAGE_OFFSET: u32 = 0x200000;
@@ -24,20 +22,14 @@ pub fn get_header() -> LayoutHeader {
     }
 }
 
-/// Returns the esp32s3 offset + the internal offset + the magic number offset
-/// It also checks the magic number is there or writes it
-pub(crate) fn get_user_storage_offset(storage: &mut FlashStorage) -> u32 {
-    // 1. We read what's after the esp_offset
-    let mut magic_buffer = [0u8; 4];
-    storage
-        .read(STORAGE_OFFSET, &mut magic_buffer)
-        .expect("read failed");
+pub(crate) const fn storage_magic_offset() -> u32 {
+    STORAGE_OFFSET
+}
 
-    // 2. We check the magic number
-    if magic_buffer != STORAGE_MAGIC {
-        return 0;
-    }
-
+/// Offset where the layout header begins (immediately after the magic marker).
+///
+/// This is a pure computation and performs no flash I/O.
+pub(crate) const fn get_user_storage_offset() -> u32 {
     STORAGE_OFFSET + 4
 }
 

@@ -95,7 +95,7 @@ async fn main(spawner: Spawner) -> ! {
                 .expect("initial storage bootstraping error");
         }
     }
-    let mut layout = StorageLayout::new(&mut storage);
+    let mut _layout = StorageLayout::new(&mut storage);
 
     // 3. Let's initialize the input devices
 
