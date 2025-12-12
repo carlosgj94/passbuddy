@@ -43,12 +43,19 @@ pub(crate) fn get_user_storage_offset(storage: &mut FlashStorage) -> u32 {
     STORAGE_OFFSET + 4
 }
 
-pub(crate) fn get_layout_header_from_bytes(
-    bytes: &[u8; core::mem::size_of::<LayoutHeader>()],
-) -> LayoutHeader {
-    LayoutHeader {
-        magic: bytes[0..4].try_into().unwrap(),
-        layout_version: u16::from_le_bytes(bytes[4..6].try_into().unwrap()),
-        region_count: bytes[6],
+impl LayoutHeader {
+    pub(crate) fn new_from_bytes(bytes: &[u8; core::mem::size_of::<LayoutHeader>()]) -> Self {
+        LayoutHeader {
+            magic: bytes[0..4].try_into().unwrap(),
+            layout_version: u16::from_le_bytes(bytes[4..6].try_into().unwrap()),
+            region_count: bytes[6],
+        }
+    }
+    pub(crate) fn get_bytes(&self) -> [u8; core::mem::size_of::<LayoutHeader>()] {
+        let mut bytes = [0u8; core::mem::size_of::<LayoutHeader>()];
+        bytes[0..4].copy_from_slice(&self.magic);
+        bytes[4..6].copy_from_slice(&self.layout_version.to_le_bytes());
+        bytes[6] = self.region_count;
+        bytes
     }
 }

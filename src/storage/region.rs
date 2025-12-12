@@ -32,23 +32,39 @@ impl RegionDescriptor {
             crc32: 0,
         }
     }
-}
+    pub const fn empty_with_kind(kind: DataRegion) -> Self {
+        Self {
+            kind,
+            offset: 0,
+            capacity: 0,
+            used_len: 0,
+            crc32: 0,
+        }
+    }
 
-pub(crate) fn get_region_descriptor_from_bytes(
-    bytes: &[u8; core::mem::size_of::<RegionDescriptor>()],
-) -> RegionDescriptor {
-    let kind = match bytes[0] {
-        0 => DataRegion::ProjectConfig,
-        1 => DataRegion::UserConfig,
-        2 => DataRegion::KeePassDb,
-        3 => DataRegion::Scratch,
-        _ => panic!("Invalid region kind"),
-    };
-    RegionDescriptor {
-        kind: kind,
-        offset: u32::from_le_bytes(bytes[1..5].try_into().unwrap()),
-        capacity: u32::from_le_bytes(bytes[5..9].try_into().unwrap()),
-        used_len: u32::from_le_bytes(bytes[9..13].try_into().unwrap()),
-        crc32: u32::from_le_bytes(bytes[13..17].try_into().unwrap()),
+    pub(crate) fn new_from_bytes(bytes: &[u8; core::mem::size_of::<RegionDescriptor>()]) -> Self {
+        let kind = match bytes[0] {
+            0 => DataRegion::ProjectConfig,
+            1 => DataRegion::UserConfig,
+            2 => DataRegion::KeePassDb,
+            3 => DataRegion::Scratch,
+            _ => panic!("Invalid region kind"),
+        };
+        RegionDescriptor {
+            kind: kind,
+            offset: u32::from_le_bytes(bytes[1..5].try_into().unwrap()),
+            capacity: u32::from_le_bytes(bytes[5..9].try_into().unwrap()),
+            used_len: u32::from_le_bytes(bytes[9..13].try_into().unwrap()),
+            crc32: u32::from_le_bytes(bytes[13..17].try_into().unwrap()),
+        }
+    }
+    pub(crate) fn to_bytes(&self) -> [u8; core::mem::size_of::<RegionDescriptor>()] {
+        let mut bytes = [0u8; core::mem::size_of::<RegionDescriptor>()];
+        bytes[0] = self.kind as u8;
+        bytes[1..5].copy_from_slice(&self.offset.to_le_bytes());
+        bytes[5..9].copy_from_slice(&self.capacity.to_le_bytes());
+        bytes[9..13].copy_from_slice(&self.used_len.to_le_bytes());
+        bytes[13..17].copy_from_slice(&self.crc32.to_le_bytes());
+        bytes
     }
 }

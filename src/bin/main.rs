@@ -87,7 +87,14 @@ async fn main(spawner: Spawner) -> ! {
 
     // 4. Let's initialize the storage
     let mut storage = FlashStorage::new(peripherals.FLASH);
-    let memory_layout_healthcheck = StorageLayout::run_healthcheck(&mut storage);
+    match StorageLayout::run_healthcheck(&mut storage) {
+        Ok(_) => {}
+        Err(_) => {
+            // The decive needs to be writen
+            StorageLayout::bootstrap_storage_write(&mut storage)
+                .expect("initial storage bootstraping error");
+        }
+    }
     let mut layout = StorageLayout::new(&mut storage);
 
     // 3. Let's initialize the input devices
