@@ -8,6 +8,7 @@
 
 use defmt::info;
 use embassy_executor::Spawner;
+use embassy_time::{Duration, Timer};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Level, Output, OutputConfig};
@@ -111,5 +112,8 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Spawn some tasks
     let _ = spawner;
 
-    loop {}
+    loop {
+        Timer::after(Duration::from_secs(1)).await;
+        // do periodic work (or log sparingly)
+    }
 }
