@@ -21,7 +21,9 @@ use mipidsi::Builder;
 use mipidsi::interface::SpiInterface;
 use mipidsi::models::ST7789;
 use mipidsi::options::Orientation;
+use passbuddy::keepass::KeePassDb;
 use passbuddy::storage::layout::StorageLayout;
+use passbuddy::storage::region::DataRegion;
 use static_cell::StaticCell;
 use {esp_backtrace as _, esp_println as _};
 
@@ -107,7 +109,15 @@ async fn main(spawner: Spawner) -> ! {
     let magic_str = core::str::from_utf8(&layout.header.magic).unwrap_or("<invalid utf8>");
     info!("magic: {=str}", magic_str);
 
-    // 3. Let's initialize the input devices
+    // 5. Let's initialize the input devices
+    //
+    // 6. Get the key to decrypt the storage
+    //
+    // 7. Get the keepass groups
+    let offset_to_regions = layout
+        .get_offset_to_region(DataRegion::KeePassDb)
+        .expect("to get offset");
+    let kpdb = KeePassDb::<32, 1024>::new(&mut storage, offset_to_regions);
 
     // TODO: Spawn some tasks
     let _ = spawner;

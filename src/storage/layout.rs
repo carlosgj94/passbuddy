@@ -7,7 +7,7 @@ use crate::storage::{
         LAYOUT_HEADER_SIZE, LayoutHeader, STORAGE_LAYOUT_VERSION, STORAGE_MAGIC,
         get_user_storage_offset, storage_magic_offset,
     },
-    region::{REGION_DESCRIPTOR_SIZE, RegionDescriptor},
+    region::{DataRegion, REGION_DESCRIPTOR_SIZE, RegionDescriptor},
 };
 use embedded_storage::Storage;
 
@@ -122,6 +122,21 @@ impl StorageLayout {
             .expect("scratch region write failed");
 
         Ok(())
+    }
+
+    pub fn get_offset_to_region(&self, region: DataRegion) -> Result<u32, StorageError> {
+        let offset_to_regions = (LAYOUT_HEADER_SIZE + (REGION_DESCRIPTOR_SIZE * 4)) as u32;
+        match region {
+            DataRegion::ProjectConfig => Ok(offset_to_regions),
+            DataRegion::UserConfig => Ok(offset_to_regions + self.regions[0].capacity),
+            DataRegion::KeePassDb => {
+                Ok(offset_to_regions + self.regions[0].capacity + self.regions[1].capacity)
+            }
+            DataRegion::Scratch => Ok(offset_to_regions
+                + self.regions[0].capacity
+                + self.regions[1].capacity
+                + self.regions[2].capacity),
+        }
     }
 }
 
