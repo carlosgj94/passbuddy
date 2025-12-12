@@ -60,13 +60,13 @@ impl StorageLayout {
         let offset = get_user_storage_offset(storage);
 
         // 2. Read the header from the storage layout
-        let mut header_buffer = [0u8; mem::size_of::<LayoutHeader>()];
+        let mut magic_buffer = [0u8; 4];
         storage
-            .read(offset, &mut header_buffer)
+            .read(offset, &mut magic_buffer)
             .expect("Read failed");
 
         // 3. We check the header magic is correct
-        if header_buffer != &STORAGE_MAGIC[..] {
+        if magic_buffer != &STORAGE_MAGIC[..] {
             return Err(StorageError::BadMagic);
         }
 
@@ -77,6 +77,13 @@ impl StorageLayout {
     pub fn bootstrap_storage_write(storage: &mut FlashStorage) -> Result<(), StorageError> {
         let offset = get_user_storage_offset(storage);
 
+        // 1. First thing is writing the magic number
+        storage
+            .write(offset, &STORAGE_MAGIC)
+            .expect("Storage magic write failed");
+
+        let header_offset = offset + mem::size_of::<u32>() as u32;
+
         // 2. Create the header
         let header = LayoutHeader {
             magic: super::header::STORAGE_MAGIC,
@@ -86,12 +93,11 @@ impl StorageLayout {
 
         // 3. Write the header to the storage layout
         storage
-            .write(offset, &header.get_bytes())
+            .write(header_offset, &header.get_bytes())
             .expect("Write failed");
 
         // 4. Initialize the regions
-        let mut regions_offset = offset;
-        regions_offset += mem::size_of::<LayoutHeader>() as u32;
+        let mut regions_offset = header_offset;
 
         let project_region =
             RegionDescriptor::empty_with_kind(super::region::DataRegion::ProjectConfig);
@@ -102,6 +108,7 @@ impl StorageLayout {
         let scratch_region = RegionDescriptor::empty_with_kind(super::region::DataRegion::Scratch);
 
         // 5. Write the regions to the storage layout
+        regions_offset += mem::size_of::<LayoutHeader>() as u32;
         storage
             .write(regions_offset, &project_region.to_bytes())
             .expect("project region write failed");

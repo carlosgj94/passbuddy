@@ -35,9 +35,7 @@ pub(crate) fn get_user_storage_offset(storage: &mut FlashStorage) -> u32 {
 
     // 2. We check the magic number
     if magic_buffer != STORAGE_MAGIC {
-        storage
-            .write(STORAGE_OFFSET, &STORAGE_MAGIC)
-            .expect("write failed");
+        return 0;
     }
 
     STORAGE_OFFSET + 4
