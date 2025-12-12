@@ -7,7 +7,7 @@ type HStr<const N: usize> = String<N>;
 #[derive(Clone, Format)]
 pub struct Group {
     /// The unique identifier of the group
-    pub uuid: [u8; 16],
+    pub uuid: u32,
 
     /// The name of the group
     pub name: HStr<64>,

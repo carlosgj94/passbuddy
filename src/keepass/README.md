@@ -115,8 +115,8 @@ Parse **GroupCount** groups in order.
 ```
 0x0001 → Group ID (u32)
 0x0002 → Group Name (UTF-8, null-terminated)
-0x0003 → Creation Time (time_t)
-0x0004 → Last Modification Time (time_t)
+0x0003 → Creation Time (packed time, 5 bytes)
+0x0004 → Last Modification Time (packed time, 5 bytes)
 0x0005 → Icon ID (u32)
 0x0006 → Level (u16)
 0xFFFF → End of Group
@@ -141,10 +141,10 @@ After all groups are parsed, read **EntryCount** entries.
 0x0006 → URL (UTF-8)
 0x0007 → Notes (UTF-8)
 
-0x0008 → Creation Time (time_t)
-0x0009 → Last Modification Time (time_t)
-0x000A → Last Access Time (time_t)
-0x000B → Expiration Time (time_t)
+0x0008 → Creation Time (packed time, 5 bytes)
+0x0009 → Last Modification Time (packed time, 5 bytes)
+0x000A → Last Access Time (packed time, 5 bytes)
+0x000B → Expiration Time (packed time, 5 bytes)
 0x000C → Byte Description (UTF-8)
 0x000D → Byte Data (raw bytes)
 
@@ -187,7 +187,7 @@ read final 0xFFFF database terminator
 ## 9. Notes for Implementors
 
 - Group and entry TLV field types overlap; **context** (group section vs entry section) determines meaning.
-- All timestamps are stored as 32-bit Unix `time_t`.
+- KeePass v1 stores timestamps as a packed 5-byte value (not Unix `time_t`).
 - Strings are null-terminated inside the TLV binary.
 - Adding or removing groups/entries requires rebuilding the entire payload; KDB is not a random-access format.
 

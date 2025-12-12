@@ -1,9 +1,36 @@
 use defmt::Format;
 
+/// KeePass v1 stores timestamps as a packed 5-byte little-endian value (40 bits).
+///
+/// Layout (least-significant bits first):
+/// - bits  0..= 5: second (0..=59)
+/// - bits  6..=11: minute (0..=59)
+/// - bits 12..=16: hour   (0..=23)
+/// - bits 17..=21: day    (1..=31)
+/// - bits 22..=25: month  (1..=12)
+/// - bits 26..=39: year   (e.g. 2025)
+#[derive(Clone, Copy, PartialEq, Eq, Format)]
+pub struct KdbTime {
+    raw: [u8; 5],
+}
+
+impl KdbTime {
+    pub const NEVER: Self = Self { raw: [0; 5] };
+
+    pub const fn from_raw(raw: [u8; 5]) -> Self {
+        Self { raw }
+    }
+
+    pub const fn raw(&self) -> &[u8; 5] {
+        &self.raw
+    }
+}
+
 #[derive(Clone, Copy, Format)]
 pub struct Times {
-    pub created: u64, // FILETIME ticks
-    pub modified: u64,
-    pub accessed: u64,
-    pub expires: u64, // 0 = never expires in KDB1
+    pub created: KdbTime,
+    pub modified: KdbTime,
+    pub accessed: KdbTime,
+    /// All-zero packed time means "never expires" in KeePass v1.
+    pub expires: KdbTime,
 }
