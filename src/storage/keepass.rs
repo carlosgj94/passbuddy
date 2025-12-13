@@ -21,7 +21,7 @@ impl<const N: usize, const M: usize> KeePassDb<N, M> {
         }
 
         // 2. We get the header
-        let header_offset = offset + 8;
+        let _header_offset = offset + 8;
 
         // 3. We get the groups
         // 4. We get the entries
