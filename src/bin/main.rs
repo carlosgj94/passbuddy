@@ -17,7 +17,7 @@ use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::{clock::CpuClock, hmac::Hmac};
 use esp_storage::FlashStorage;
-use passbuddy::app::Screens;
+use passbuddy::app::{AppState, Screens};
 use passbuddy::keepass::KeePassDb;
 use passbuddy::storage::layout::StorageLayout;
 use passbuddy::storage::region::DataRegion;
@@ -71,7 +71,7 @@ async fn main(spawner: Spawner) -> ! {
         .init(&mut Delay::new())
         .unwrap_or_else(|_| panic!("SSD1309 init failed"));
 
-    let mut state = app::initial_state();
+    let mut app_state = AppState::new();
     let mut terminal = app::init_terminal_with_flush(&mut display, |display| {
         display
             .flush()
@@ -81,7 +81,7 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Move the drawing inside an embassy task
     info!("Drawing menu");
     terminal
-        .draw(|frame| app::draw_group_menu(frame, &mut state))
+        .draw(|frame| app::draw_group_menu(frame, &mut app_state.selected))
         .expect("to draw");
 
     // 4. Let's initialize the storage
@@ -117,39 +117,37 @@ async fn main(spawner: Spawner) -> ! {
         .expect("to get offset");
     let _kpdb = KeePassDb::<4, 128>::new(&mut storage, offset_to_regions);
 
-    let mut screen = Screens::SelectGroup;
-
     // TODO: Spawn some tasks
     let _ = spawner;
 
     loop {
         Timer::after(Duration::from_millis(40)).await;
-        let before = state.selected();
-        let pot_raw: u16 = potentiometer_input.poll_menu(&mut state);
+        let before = app_state.selected();
+        potentiometer_input.poll_menu(&mut app_state.selected);
 
-        if action_button.is_low() && state.selected().unwrap() == 3 {
+        if action_button.is_low() && app_state.selected().unwrap() == 3 {
             info!("Action button pressed and select is three");
-            screen = Screens::NewGroupForm;
+            app_state.push_screen(Screens::NewGroupForm);
         }
 
-        info!("State: {:?}", state.selected());
+        info!("State: {:?}", app_state.selected());
         if action_button.is_low()
-            && screen == Screens::NewGroupForm
-            && state.selected().unwrap() == 2
+            && app_state.get_current_screen().unwrap() == Screens::NewGroupForm
+            && app_state.selected().unwrap() == 2
         {
-            screen = Screens::SelectGroup;
+            app_state.pop_screen();
         }
 
-        if state.selected() != before || action_button.is_low() {
-            match screen {
+        if app_state.selected() != before || action_button.is_low() {
+            match app_state.get_current_screen().unwrap() {
                 Screens::SelectGroup => {
                     terminal
-                        .draw(|frame| app::draw_group_menu(frame, &mut state))
+                        .draw(|frame| app::draw_group_menu(frame, &mut app_state.selected))
                         .expect("to draw");
                 }
                 Screens::NewGroupForm => {
                     terminal
-                        .draw(|frame| app::draw_new_group_form(frame, &mut state))
+                        .draw(|frame| app::draw_new_group_form(frame, &mut app_state.selected))
                         .expect("to draw");
                 }
             }
