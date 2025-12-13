@@ -10,9 +10,8 @@ use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use embedded_hal_bus::spi::ExclusiveDevice;
-use esp_hal::analog::adc::{Adc, AdcCalLine, AdcConfig, Attenuation};
 use esp_hal::delay::Delay;
-use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig};
 use esp_hal::spi::{Mode as SpiMode, master::Config as SpiConfig, master::Spi};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
@@ -23,7 +22,8 @@ use passbuddy::storage::layout::StorageLayout;
 use passbuddy::storage::region::DataRegion;
 use {esp_backtrace as _, esp_println as _};
 
-use passbuddy::display;
+use passbuddy::input::Inputs;
+use passbuddy::{app, display};
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
@@ -45,7 +45,6 @@ async fn main(spawner: Spawner) -> ! {
 
     // 1. Get the peripherals declared
     info!("Declared peripherals");
-    let potentiometer_pin = peripherals.GPIO1;
     let mut _hmac = Hmac::new(peripherals.HMAC);
     let spi = Spi::new(
         peripherals.SPI2,
@@ -71,8 +70,8 @@ async fn main(spawner: Spawner) -> ! {
         .init(&mut Delay::new())
         .unwrap_or_else(|_| panic!("SSD1309 init failed"));
 
-    let mut state = display::initial_state();
-    let mut terminal = display::init_terminal_with_flush(&mut display, |display| {
+    let mut state = app::initial_state();
+    let mut terminal = app::init_terminal_with_flush(&mut display, |display| {
         display
             .flush()
             .unwrap_or_else(|_| panic!("SSD1309 flush failed"));
@@ -81,7 +80,7 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Move the drawing inside an embassy task
     info!("Drawing menu");
     terminal
-        .draw(|frame| display::draw_menu(frame, &mut state))
+        .draw(|frame| app::draw_menu(frame, &mut state))
         .expect("to draw");
 
     // 4. Let's initialize the storage
@@ -103,11 +102,8 @@ async fn main(spawner: Spawner) -> ! {
     info!("magic: {=str}", magic_str);
 
     // 5. Let's initialize the input devices
-    let mut adc_config = AdcConfig::new();
-    // Use line calibration so reads come back in mV (and bias/gain are corrected).
-    let mut pin =
-        adc_config.enable_pin_with_cal::<_, AdcCalLine<_>>(potentiometer_pin, Attenuation::_11dB);
-    let mut potentiometer = Adc::new(peripherals.ADC1, adc_config);
+    let mut potentiometer_input = Inputs::new(peripherals.ADC1, peripherals.GPIO1, app::MENU_ITEMS);
+    let mut _action_button = Input::new(peripherals.GPIO9, InputConfig::default());
     //
     // 6. Get the key to decrypt the storage
     //
@@ -121,13 +117,15 @@ async fn main(spawner: Spawner) -> ! {
     let _ = spawner;
 
     loop {
-        Timer::after(Duration::from_secs(2)).await;
-        let pot_mv: u16 = potentiometer.read_blocking(&mut pin);
-        info!("Potentiometer: {=u16}mV", pot_mv);
-        if pot_mv > 1700 {
-            state.select_next();
-        } else if pot_mv < 1200 {
-            state.select_previous();
+        Timer::after(Duration::from_millis(500)).await;
+        let before = state.selected();
+        let pot_raw: u16 = potentiometer_input.poll_menu(&mut state);
+        info!("Potentiometer: {=u16}raw", pot_raw);
+
+        if state.selected() != before {
+            terminal
+                .draw(|frame| app::draw_menu(frame, &mut state))
+                .expect("to draw");
         }
 
         // do periodic work (or log sparingly)
