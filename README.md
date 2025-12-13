@@ -8,8 +8,9 @@ Passbuddy is a no_std Rust firmware for the ESP32-S3 that acts like a USB keyboa
 - **Security posture:** No cloud or sync. Flash theft is useless without the PIN and bypassing S3 anti-dump protections. Vendor compromise is irrelevant because secrets stay on hardware.
 
 ## Project Layout
-- `src/bin/main.rs` — ESP-RTOS entrypoint; sets CPU clocks, HMAC peripheral, SPI2, and ST7789 display; draws a simple `ratatui` list via `mousefood`; logs a heartbeat.
+- `src/bin/main.rs` — ESP-RTOS entrypoint; sets CPU clocks, HMAC peripheral, SPI2, and SSD1309 display; draws a simple `ratatui` list via `mousefood`; logs a heartbeat.
 - `src/display.rs` — display helpers (`init_terminal`, `initial_state`, `draw_menu`).
+- `src/display/ssd1309.rs` — SSD1309 SPI driver implementing `embedded-graphics` `DrawTarget` + framebuffer flush.
 - `src/encryption.rs` — HMAC-based software key derivation (`derive_sw_key`).
 - `build.rs` — adds linker scripts (`defmt.x`, `linkall.x`) and prints hints for missing symbols.
 - `.cargo/config.toml` — targets `xtensa-esp32s3-none-elf`, sets `espflash` runner, enables `build-std` for `core`/`alloc`.
@@ -29,7 +30,7 @@ Notes: ensure only one serial/monitor session is open when flashing; replug USB 
 
 ## Architecture Notes
 - No_std + Embassy executor; heap set via `esp_alloc::heap_allocator!` in `main`.
-- Display: ST7789 over SPI2 using `mipidsi`; UI rendered with `ratatui`/`mousefood`.
+- Display: SSD1309 over SPI2 (custom driver); UI rendered with `ratatui`/`mousefood`.
 - HID keyboard output planned for password typing; input hardware for PIN entry is TBD.
 
 ## Status / Next Steps

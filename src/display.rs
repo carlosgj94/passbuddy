@@ -1,18 +1,32 @@
-use embedded_graphics::{geometry::Dimensions, pixelcolor::Rgb565, prelude::DrawTarget};
+pub mod ssd1309;
+
+use alloc::boxed::Box;
+use embedded_graphics::{geometry::Dimensions, pixelcolor::BinaryColor, prelude::DrawTarget};
 use mousefood::{EmbeddedBackend, EmbeddedBackendConfig, fonts};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, List, ListState};
 use ratatui::{Frame, Terminal};
 
-pub fn init_terminal<'a, D>(display: &'a mut D) -> Terminal<EmbeddedBackend<'a, D, Rgb565>>
+pub fn init_terminal<'a, D>(display: &'a mut D) -> Terminal<EmbeddedBackend<'a, D, BinaryColor>>
 where
-    D: DrawTarget<Color = Rgb565> + Dimensions + 'static,
+    D: DrawTarget<Color = BinaryColor> + Dimensions + 'static,
+{
+    init_terminal_with_flush(display, |_| {})
+}
+
+pub fn init_terminal_with_flush<'a, D>(
+    display: &'a mut D,
+    flush: impl FnMut(&mut D) + 'static,
+) -> Terminal<EmbeddedBackend<'a, D, BinaryColor>>
+where
+    D: DrawTarget<Color = BinaryColor> + Dimensions + 'static,
 {
     let backend = EmbeddedBackend::new(
         display,
         EmbeddedBackendConfig {
-            font_regular: fonts::MONO_9X18,
-            font_bold: Some(fonts::MONO_9X18_BOLD),
+            flush_callback: Box::new(flush),
+            font_regular: fonts::MONO_6X10_OPTIMIZED,
+            font_bold: None,
             font_italic: None,
             ..Default::default()
         },
@@ -36,7 +50,7 @@ pub fn draw_menu(frame: &mut Frame, state: &mut ListState) {
     let list = List::new(items)
         .block(outer_block)
         .style(Style::new())
-        .highlight_style(Style::new().bold().bg(Color::Green).italic())
+        .highlight_style(Style::new().bold().bg(Color::White).fg(Color::Black))
         .highlight_symbol(">> ");
     frame.render_stateful_widget(list, frame.area(), state);
 }
