@@ -31,20 +31,20 @@ impl StorageLayout {
             .read(offset, &mut header_buffer)
             .expect("Read failed");
 
-        let layout_header = LayoutHeader::new_from_bytes(&header_buffer);
+        let _layout_header = LayoutHeader::new_from_bytes(&header_buffer);
         offset += LAYOUT_HEADER_SIZE as u32;
 
         // 3. Read the fixed set of region descriptors
         let mut current_offset = offset;
         let mut regions = [RegionDescriptor::empty(); REGION_COUNT];
-        for idx in 0..REGION_COUNT {
+        for region in &mut regions {
             let mut region_buffer = [0u8; REGION_DESCRIPTOR_SIZE];
             storage
                 .read(current_offset, &mut region_buffer)
                 .expect("region reading failed");
 
             current_offset += REGION_DESCRIPTOR_SIZE as u32;
-            regions[idx] = RegionDescriptor::new_from_bytes(&region_buffer);
+            *region = RegionDescriptor::new_from_bytes(&region_buffer);
         }
 
         Self {
@@ -52,7 +52,6 @@ impl StorageLayout {
                 magic: super::header::STORAGE_MAGIC,
                 layout_version: STORAGE_LAYOUT_VERSION,
                 region_count: REGION_COUNT as u8,
-                ..layout_header
             },
             regions,
         }

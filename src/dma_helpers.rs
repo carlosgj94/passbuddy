@@ -10,8 +10,8 @@ pub fn write_msg_to_mem<'d>(
     msg: &[u8],
 ) -> Result<(), DmaError> {
     // Fill the buffer predictably
-    for i in 0..tx.len() {
-        tx[i] = (i % 256) as u8;
+    for (i, byte) in tx.iter_mut().enumerate() {
+        *byte = (i % 256) as u8;
     }
     tx[..msg.len()].copy_from_slice(msg);
 

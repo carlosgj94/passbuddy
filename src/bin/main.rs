@@ -10,6 +10,7 @@ use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use embedded_hal_bus::spi::ExclusiveDevice;
+use esp_hal::analog::adc::{Adc, AdcCalLine, AdcConfig, Attenuation};
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::spi::{Mode as SpiMode, master::Config as SpiConfig, master::Spi};
@@ -44,6 +45,7 @@ async fn main(spawner: Spawner) -> ! {
 
     // 1. Get the peripherals declared
     info!("Declared peripherals");
+    let potentiometer_pin = peripherals.GPIO1;
     let mut _hmac = Hmac::new(peripherals.HMAC);
     let spi = Spi::new(
         peripherals.SPI2,
@@ -101,6 +103,11 @@ async fn main(spawner: Spawner) -> ! {
     info!("magic: {=str}", magic_str);
 
     // 5. Let's initialize the input devices
+    let mut adc_config = AdcConfig::new();
+    // Use line calibration so reads come back in mV (and bias/gain are corrected).
+    let mut pin =
+        adc_config.enable_pin_with_cal::<_, AdcCalLine<_>>(potentiometer_pin, Attenuation::_11dB);
+    let mut potentiometer = Adc::new(peripherals.ADC1, adc_config);
     //
     // 6. Get the key to decrypt the storage
     //
@@ -114,7 +121,15 @@ async fn main(spawner: Spawner) -> ! {
     let _ = spawner;
 
     loop {
-        Timer::after(Duration::from_secs(1)).await;
+        Timer::after(Duration::from_secs(2)).await;
+        let pot_mv: u16 = potentiometer.read_blocking(&mut pin);
+        info!("Potentiometer: {=u16}mV", pot_mv);
+        if pot_mv > 1700 {
+            state.select_next();
+        } else if pot_mv < 1200 {
+            state.select_previous();
+        }
+
         // do periodic work (or log sparingly)
     }
 }

@@ -54,14 +54,14 @@ impl RegionDescriptor {
             _ => panic!("Invalid region kind"),
         };
         RegionDescriptor {
-            kind: kind,
+            kind,
             offset: u32::from_le_bytes(bytes[1..5].try_into().unwrap()),
             capacity: u32::from_le_bytes(bytes[5..9].try_into().unwrap()),
             used_len: u32::from_le_bytes(bytes[9..13].try_into().unwrap()),
             crc32: u32::from_le_bytes(bytes[13..17].try_into().unwrap()),
         }
     }
-    pub(crate) fn to_bytes(&self) -> [u8; REGION_DESCRIPTOR_SIZE] {
+    pub(crate) fn to_bytes(self) -> [u8; REGION_DESCRIPTOR_SIZE] {
         let mut bytes = [0u8; REGION_DESCRIPTOR_SIZE];
         bytes[0] = self.kind as u8;
         bytes[1..5].copy_from_slice(&self.offset.to_le_bytes());

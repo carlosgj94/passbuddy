@@ -35,7 +35,7 @@ pub(crate) const fn get_user_storage_offset() -> u32 {
 }
 
 impl LayoutHeader {
-    pub(crate) fn new_from_bytes(bytes: &[u8; LAYOUT_HEADER_SIZE as usize]) -> Self {
+    pub(crate) fn new_from_bytes(bytes: &[u8; LAYOUT_HEADER_SIZE]) -> Self {
         LayoutHeader {
             magic: bytes[0..4].try_into().unwrap(),
             layout_version: u16::from_le_bytes(bytes[4..6].try_into().unwrap()),
