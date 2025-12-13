@@ -2,8 +2,8 @@ use ratatui::Frame;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, List, ListState};
 
-pub const ITEMS: usize = 2;
-pub const LABELS: [&str; ITEMS] = ["Name", "Icon"];
+pub const ITEMS: usize = 3;
+pub const LABELS: [&str; ITEMS] = ["Name", "Icon", "Back"];
 
 pub fn draw(frame: &mut Frame, state: &mut ListState) {
     let outer_block = Block::bordered()

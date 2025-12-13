@@ -3,12 +3,12 @@ use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, List, ListState};
 
 pub const ITEMS: usize = 4;
-pub const LABELS: [&str; ITEMS] = ["Personal", "Work", "Shared", "New database"];
+pub const LABELS: [&str; ITEMS] = ["Personal", "Work", "Shared", "New group"];
 
 pub fn draw(frame: &mut Frame, state: &mut ListState) {
     let outer_block = Block::bordered()
         .border_style(Style::new().bold().green())
-        .title(" Select Database ");
+        .title(" Select group ");
 
     let list = List::new(LABELS)
         .block(outer_block)

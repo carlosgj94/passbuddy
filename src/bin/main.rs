@@ -17,6 +17,7 @@ use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::{clock::CpuClock, hmac::Hmac};
 use esp_storage::FlashStorage;
+use passbuddy::app::Screens;
 use passbuddy::keepass::KeePassDb;
 use passbuddy::storage::layout::StorageLayout;
 use passbuddy::storage::region::DataRegion;
@@ -80,7 +81,7 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Move the drawing inside an embassy task
     info!("Drawing menu");
     terminal
-        .draw(|frame| app::draw_menu(frame, &mut state))
+        .draw(|frame| app::draw_group_menu(frame, &mut state))
         .expect("to draw");
 
     // 4. Let's initialize the storage
@@ -103,7 +104,10 @@ async fn main(spawner: Spawner) -> ! {
 
     // 5. Let's initialize the input devices
     let mut potentiometer_input = Inputs::new(peripherals.ADC1, peripherals.GPIO1, app::MENU_ITEMS);
-    let mut _action_button = Input::new(peripherals.GPIO9, InputConfig::default());
+    let action_button = Input::new(
+        peripherals.GPIO9,
+        InputConfig::default().with_pull(esp_hal::gpio::Pull::Up),
+    );
     //
     // 6. Get the key to decrypt the storage
     //
@@ -113,19 +117,42 @@ async fn main(spawner: Spawner) -> ! {
         .expect("to get offset");
     let _kpdb = KeePassDb::<4, 128>::new(&mut storage, offset_to_regions);
 
+    let mut screen = Screens::SelectGroup;
+
     // TODO: Spawn some tasks
     let _ = spawner;
 
     loop {
-        Timer::after(Duration::from_millis(500)).await;
+        Timer::after(Duration::from_millis(40)).await;
         let before = state.selected();
         let pot_raw: u16 = potentiometer_input.poll_menu(&mut state);
-        info!("Potentiometer: {=u16}raw", pot_raw);
 
-        if state.selected() != before {
-            terminal
-                .draw(|frame| app::draw_menu(frame, &mut state))
-                .expect("to draw");
+        if action_button.is_low() && state.selected().unwrap() == 3 {
+            info!("Action button pressed and select is three");
+            screen = Screens::NewGroupForm;
+        }
+
+        info!("State: {:?}", state.selected());
+        if action_button.is_low()
+            && screen == Screens::NewGroupForm
+            && state.selected().unwrap() == 2
+        {
+            screen = Screens::SelectGroup;
+        }
+
+        if state.selected() != before || action_button.is_low() {
+            match screen {
+                Screens::SelectGroup => {
+                    terminal
+                        .draw(|frame| app::draw_group_menu(frame, &mut state))
+                        .expect("to draw");
+                }
+                Screens::NewGroupForm => {
+                    terminal
+                        .draw(|frame| app::draw_new_group_form(frame, &mut state))
+                        .expect("to draw");
+                }
+            }
         }
 
         // do periodic work (or log sparingly)
