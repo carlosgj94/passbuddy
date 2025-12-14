@@ -17,7 +17,7 @@ use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::{clock::CpuClock, hmac::Hmac};
 use esp_storage::FlashStorage;
-use passbuddy::app::{AppState, Screens};
+use passbuddy::app::AppState;
 use passbuddy::keepass::KeePassDb;
 use passbuddy::storage::layout::StorageLayout;
 use passbuddy::storage::region::DataRegion;
@@ -81,7 +81,7 @@ async fn main(spawner: Spawner) -> ! {
     // TODO: Move the drawing inside an embassy task
     info!("Drawing menu");
     terminal
-        .draw(|frame| app::draw_group_menu(frame, &mut app_state.selected))
+        .draw(|frame| app_state.draw_current_screen(frame))
         .expect("to draw");
 
     // 4. Let's initialize the storage
@@ -125,32 +125,15 @@ async fn main(spawner: Spawner) -> ! {
         let before = app_state.selected();
         potentiometer_input.poll_menu(&mut app_state.selected);
 
-        if action_button.is_low() && app_state.selected().unwrap() == 3 {
-            info!("Action button pressed and select is three");
-            app_state.push_screen(Screens::NewGroupForm);
-        }
-
-        info!("State: {:?}", app_state.selected());
-        if action_button.is_low()
-            && app_state.get_current_screen().unwrap() == Screens::NewGroupForm
-            && app_state.selected().unwrap() == 2
-        {
-            app_state.pop_screen();
+        if action_button.is_low() {
+            info!("Action button pressed");
+            app_state.on_select();
         }
 
         if app_state.selected() != before || action_button.is_low() {
-            match app_state.get_current_screen().unwrap() {
-                Screens::SelectGroup => {
-                    terminal
-                        .draw(|frame| app::draw_group_menu(frame, &mut app_state.selected))
-                        .expect("to draw");
-                }
-                Screens::NewGroupForm => {
-                    terminal
-                        .draw(|frame| app::draw_new_group_form(frame, &mut app_state.selected))
-                        .expect("to draw");
-                }
-            }
+            terminal
+                .draw(|frame| app_state.draw_current_screen(frame))
+                .expect("to draw");
         }
 
         // do periodic work (or log sparingly)
