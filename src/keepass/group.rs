@@ -1,8 +1,8 @@
 use super::times::Times;
 use defmt::Format;
 
-// group_id = 4; name = (64 + 4); icon_id = 8; level = 2; times = 20;
-pub const GROUP_SIZE: usize = 4 + 68 + 8 + 2 + 20 + 2; // 104
+// group_id = 4; name = 64; icon_id = 8; level = 2; times = 20; padding = 2;
+pub const GROUP_SIZE: usize = 4 + 64 + 8 + 2 + 20 + 2; // 100
 
 #[derive(Clone, Copy, Format)]
 pub struct Group {
@@ -27,8 +27,8 @@ impl Group {
         let group_id = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
         let name: [u8; 64] = bytes[4..68].try_into().unwrap();
         let icon_id: Option<u32> = Some(u32::from_le_bytes(bytes[68..72].try_into().unwrap()));
-        let level = u16::from_le_bytes(bytes[72..74].try_into().unwrap());
-        let times = Times::new_from_bytes(bytes[74..86].try_into().unwrap());
+        let level = u16::from_le_bytes(bytes[76..78].try_into().unwrap());
+        let times = Times::new_from_bytes(&bytes[78..98]);
 
         Self {
             group_id,
