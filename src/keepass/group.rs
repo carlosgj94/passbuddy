@@ -1,16 +1,16 @@
 use super::times::Times;
 use defmt::Format;
-use heapless::String;
 
-type HStr<const N: usize> = String<N>;
+// group_id = 4; name = (64 + 4); icon_id = 8; level = 2; times = 20;
+pub const GROUP_SIZE: usize = 4 + 68 + 8 + 2 + 20 + 2; // 104
 
-#[derive(Clone, Format)]
+#[derive(Clone, Copy, Format)]
 pub struct Group {
     /// The unique identifier of the group
     pub group_id: u32,
 
     /// The name of the group
-    pub name: HStr<64>,
+    pub name: [u8; 64],
 
     /// ID of the group's icon
     pub icon_id: Option<u32>,
@@ -20,7 +20,22 @@ pub struct Group {
 
     /// The list of time fields for this group
     pub times: Times,
+}
 
-    /// Flags for the group
-    pub flags: Option<u32>,
+impl Group {
+    pub fn new_from_bytes(bytes: &[u8]) -> Self {
+        let group_id = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
+        let name: [u8; 64] = bytes[4..68].try_into().unwrap();
+        let icon_id: Option<u32> = Some(u32::from_le_bytes(bytes[68..72].try_into().unwrap()));
+        let level = u16::from_le_bytes(bytes[72..74].try_into().unwrap());
+        let times = Times::new_from_bytes(bytes[74..86].try_into().unwrap());
+
+        Self {
+            group_id,
+            name,
+            icon_id,
+            level,
+            times,
+        }
+    }
 }

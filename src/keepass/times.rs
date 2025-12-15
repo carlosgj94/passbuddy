@@ -34,3 +34,18 @@ pub struct Times {
     /// All-zero packed time means "never expires" in KeePass v1.
     pub expires: KdbTime,
 }
+
+impl Times {
+    pub fn new_from_bytes(bytes: &[u8]) -> Self {
+        let created = KdbTime::from_raw(bytes[0..5].try_into().unwrap());
+        let modified = KdbTime::from_raw(bytes[5..10].try_into().unwrap());
+        let accessed = KdbTime::from_raw(bytes[10..15].try_into().unwrap());
+        let expires = KdbTime::from_raw(bytes[15..20].try_into().unwrap());
+        Self {
+            created,
+            modified,
+            accessed,
+            expires,
+        }
+    }
+}
