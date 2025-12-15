@@ -6,7 +6,7 @@ use defmt::Format;
 // icon_id = 8; times = 20; autotype = 1; padding = 3;
 pub const ENTRY_SIZE: usize = 16 + 4 + 64 + 64 + 64 + 128 + 8 + 20 + 1 + 3; // 372
 
-#[derive(Clone, Copy, Format)]
+#[derive(Clone, Copy, Format, Debug)]
 pub struct Entry {
     pub uuid: [u8; 16],
     pub group_id: u32,

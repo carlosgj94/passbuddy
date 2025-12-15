@@ -115,7 +115,8 @@ async fn main(spawner: Spawner) -> ! {
     let offset_to_regions = layout
         .get_offset_to_region(DataRegion::KeePassDb)
         .expect("to get offset");
-    let _kpdb = KeePassDb::<4, 128>::new(&mut storage, offset_to_regions);
+    let kpdb = KeePassDb::new(&mut storage, offset_to_regions).unwrap();
+    let mut app_state = app_state.with_kpdb(kpdb);
 
     // TODO: Spawn some tasks
     let _ = spawner;

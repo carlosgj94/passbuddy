@@ -5,7 +5,7 @@ use defmt::Format;
 pub const KDB_SIGNATURE1: u32 = 0x9AA2D903;
 pub const KDB_SIGNATURE2: u32 = 0xB54BFB65;
 
-#[derive(Clone, Copy, Format)]
+#[derive(Clone, Copy, Format, Debug)]
 pub struct KDBHeader {
     // https://gist.github.com/lgg/e6ccc6e212d18dd2ecd8a8c116fb1e45
     pub flags: u32,

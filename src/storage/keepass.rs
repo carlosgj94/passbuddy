@@ -8,7 +8,7 @@ use crate::keepass::{
     header::{KDB_SIGNATURE1, KDB_SIGNATURE2},
 };
 
-impl<const N: usize, const M: usize> KeePassDb<N, M> {
+impl KeePassDb {
     pub fn new(storage: &mut FlashStorage, offset: u32) -> Result<Self, KDBError> {
         // 1. we check the magic signatures are there
         let mut signature1_buffer = [0u8; 4];
@@ -31,7 +31,7 @@ impl<const N: usize, const M: usize> KeePassDb<N, M> {
         // 3. We get the groups
         let mut group_offset = header_offset + HEADER_SIZE as u32;
         let mut group_buffer = [0u8; GROUP_SIZE];
-        let mut groups: [Option<Group>; N] = [None; N];
+        let mut groups: [Option<Group>; 4] = [None; 4];
         for i in 0..header.num_groups as usize {
             storage.read(group_offset, &mut group_buffer).unwrap();
             groups[i] = Some(Group::new_from_bytes(&group_buffer));
@@ -40,14 +40,14 @@ impl<const N: usize, const M: usize> KeePassDb<N, M> {
         // 4. We get the entries
         let mut entry_offset = group_offset;
         let mut entry_buffer = [0u8; ENTRY_SIZE];
-        let mut entries: [Option<Entry>; M] = [None; M];
+        let mut entries: [Option<Entry>; 128] = [None; 128];
         for i in 0..header.num_entries as usize {
             storage.read(entry_offset, &mut entry_buffer).unwrap();
             entries[i] = Some(Entry::new_from_bytes(&entry_buffer));
             entry_offset += ENTRY_SIZE as u32;
         }
         // 5. Return the database
-        Ok(KeePassDb::<N, M> {
+        Ok(KeePassDb {
             signature1: u32::from_le_bytes(signature1_buffer),
             signature2: u32::from_le_bytes(signature2_buffer),
             header: header,

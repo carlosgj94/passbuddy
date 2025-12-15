@@ -5,6 +5,7 @@ use ratatui::widgets::{Block, List, ListState};
 
 use crate::app::ScreenAction;
 use crate::app::screens::Screen;
+use crate::keepass::KeePassDb;
 
 pub const ITEMS: usize = 3;
 pub const LABELS: [&str; ITEMS] = ["Name", "Icon", "Back"];
@@ -13,7 +14,11 @@ pub const LABELS: [&str; ITEMS] = ["Name", "Icon", "Back"];
 pub struct NewGroupForm;
 
 impl Screen for NewGroupForm {
-    fn draw(&self, frame: &mut Frame, state: &mut ListState) {
+    fn new() -> Self {
+        Self
+    }
+
+    fn draw(&mut self, frame: &mut Frame, selected: &mut ListState, _: &KeePassDb) {
         let outer_block = Block::bordered()
             .border_style(Style::new().bold().green())
             .title(" New Group ");
@@ -24,7 +29,7 @@ impl Screen for NewGroupForm {
             .highlight_style(Style::new().bold().bg(Color::White).fg(Color::Black))
             .highlight_symbol(">> ");
 
-        frame.render_stateful_widget(list, frame.area(), state);
+        frame.render_stateful_widget(list, frame.area(), selected);
     }
 
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {

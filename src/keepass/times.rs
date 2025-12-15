@@ -9,7 +9,7 @@ use defmt::Format;
 /// - bits 17..=21: day    (1..=31)
 /// - bits 22..=25: month  (1..=12)
 /// - bits 26..=39: year   (e.g. 2025)
-#[derive(Clone, Copy, PartialEq, Eq, Format)]
+#[derive(Clone, Copy, PartialEq, Eq, Format, Debug)]
 pub struct KdbTime {
     raw: [u8; 5],
 }
@@ -26,7 +26,7 @@ impl KdbTime {
     }
 }
 
-#[derive(Clone, Copy, Format)]
+#[derive(Clone, Copy, Format, Debug)]
 pub struct Times {
     pub created: KdbTime,
     pub modified: KdbTime,

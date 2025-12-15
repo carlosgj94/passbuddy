@@ -4,7 +4,7 @@ use defmt::Format;
 // group_id = 4; name = 64; icon_id = 8; level = 2; times = 20; padding = 2;
 pub const GROUP_SIZE: usize = 4 + 64 + 8 + 2 + 20 + 2; // 100
 
-#[derive(Clone, Copy, Format)]
+#[derive(Clone, Copy, Format, Debug)]
 pub struct Group {
     /// The unique identifier of the group
     pub group_id: u32,

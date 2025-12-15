@@ -5,32 +5,38 @@ use ratatui::Frame;
 use ratatui::widgets::ListState;
 
 use defmt::Format;
-pub use screens::select_database::{ITEMS as MENU_ITEMS, LABELS as MENU_LABELS};
+pub use screens::select_group::ITEMS as MENU_ITEMS;
 pub use terminal::{init_terminal, init_terminal_with_flush};
 
 use screens::Screen;
 
+use crate::keepass::KeePassDb;
+
 #[derive(Debug, Format)]
 pub enum Screens {
-    SelectGroup(screens::select_database::SelectDatabaseScreen),
+    SelectGroup(screens::select_group::SelectGroupScreen),
     NewGroupForm(screens::new_group_form::NewGroupForm),
 }
 
 impl Screens {
     pub fn select_group() -> Self {
-        Self::SelectGroup(screens::select_database::SelectDatabaseScreen)
+        Self::SelectGroup(screens::select_group::SelectGroupScreen::new())
     }
 
     pub fn new_group_form() -> Self {
-        Self::NewGroupForm(screens::new_group_form::NewGroupForm)
+        Self::NewGroupForm(screens::new_group_form::NewGroupForm::new())
     }
 }
 
 impl Screen for Screens {
-    fn draw(&self, frame: &mut Frame, state: &mut ListState) {
+    fn new() -> Self {
+        Self::SelectGroup(screens::select_group::SelectGroupScreen::new())
+    }
+
+    fn draw(&mut self, frame: &mut Frame, selected: &mut ListState, keepass: &KeePassDb) {
         match self {
-            Screens::SelectGroup(screen) => screen.draw(frame, state),
-            Screens::NewGroupForm(screen) => screen.draw(frame, state),
+            Screens::SelectGroup(screen) => screen.draw(frame, selected, keepass),
+            Screens::NewGroupForm(screen) => screen.draw(frame, selected, keepass),
         }
     }
 
@@ -49,16 +55,11 @@ pub enum ScreenAction {
     Pop,
 }
 
-pub fn initial_state() -> ListState {
-    let mut state = ListState::default();
-    state.select_first();
-    state
-}
-
 #[derive(Debug)]
 pub struct AppState {
     pub screen_stack: [Option<Screens>; 8],
     pub selected: ListState,
+    pub kpdb: Option<KeePassDb>,
 }
 
 impl AppState {
@@ -71,7 +72,12 @@ impl AppState {
         Self {
             screen_stack,
             selected,
+            kpdb: None,
         }
+    }
+    pub fn with_kpdb(mut self, kpdb: KeePassDb) -> Self {
+        self.kpdb = Some(kpdb);
+        self
     }
 
     pub fn select_next(&mut self) {
@@ -84,6 +90,10 @@ impl AppState {
 
     pub fn selected_mut(&mut self) -> &mut ListState {
         &mut self.selected
+    }
+
+    pub fn kpdb(&self) -> Option<&KeePassDb> {
+        self.kpdb.as_ref()
     }
 
     fn current_screen_index(&self) -> usize {
@@ -112,10 +122,13 @@ impl AppState {
 
     pub fn draw_current_screen(&mut self, frame: &mut Frame) {
         let idx = self.current_screen_index();
+        let kpdb = self.kpdb.as_ref().unwrap();
         let screen = self.screen_stack[idx]
-            .as_ref()
+            .as_mut()
             .unwrap_or_else(|| unreachable!("current_screen_index returned empty slot"));
-        screen.draw(frame, &mut self.selected);
+
+        // TODO: avoid cloning `selected`; `render_stateful_widget` updates offsets.
+        screen.draw(frame, &mut self.selected.clone(), kpdb);
     }
 
     pub fn on_select(&mut self) {
