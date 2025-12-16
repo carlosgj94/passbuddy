@@ -20,6 +20,7 @@ use esp_storage::FlashStorage;
 use passbuddy::app::AppState;
 use passbuddy::keepass::KeePassDb;
 use passbuddy::storage::layout::StorageLayout;
+use passbuddy::storage::region::DataRegion;
 use {esp_backtrace as _, esp_println as _};
 
 use passbuddy::input::Inputs;
@@ -120,14 +121,14 @@ async fn main(spawner: Spawner) -> ! {
     // 6. Get the key to decrypt the storage
     //
     // 7. Get the keepass groups
-    let offset_to_keepass = layout.get_offset_to_keepass();
-    if KeePassDb::check_if_exists(&mut storage, offset_to_keepass).unwrap() == false {
+    let keepass_region = layout.region_handle(DataRegion::KeePassDb).unwrap();
+    if KeePassDb::check_if_exists(&mut storage, keepass_region).unwrap() == false {
         info!("Creating a new keepass");
-        KeePassDb::initialize_db(&mut storage, offset_to_keepass).unwrap();
+        KeePassDb::initialize_db(&mut storage, keepass_region).unwrap();
     }
 
     info!("Indexing the keepass database");
-    let kpdb = KeePassDb::new(&mut storage, offset_to_keepass).unwrap();
+    let kpdb = KeePassDb::new(&mut storage, keepass_region).unwrap();
     let mut app_state = app_state.with_kpdb(kpdb);
 
     // TODO: Spawn some tasks

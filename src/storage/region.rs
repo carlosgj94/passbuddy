@@ -6,10 +6,16 @@ pub(crate) const REGION_DESCRIPTOR_SIZE: usize = 20;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 #[repr(u8)]
 pub enum DataRegion {
-    ProjectConfig,
-    UserConfig,
-    KeePassDb,
-    Scratch,
+    ProjectConfig = 0,
+    UserConfig = 1,
+    KeePassDb = 2,
+    Scratch = 3,
+}
+
+impl DataRegion {
+    pub const fn index(self) -> usize {
+        self as usize
+    }
 }
 
 /// Describes where a region lives in flash.
@@ -23,6 +29,26 @@ pub struct RegionDescriptor {
     pub used_len: u32,
     /// TODO: Populate/validate CRC32 for region contents.
     pub crc32: u32,
+}
+
+/// A validated region "view" used for safe, bounds-checked addressing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
+pub struct RegionHandle {
+    pub base: u32,
+    pub capacity: u32,
+}
+
+impl RegionHandle {
+    pub fn absolute(self, relative_offset: u32) -> Option<u32> {
+        self.base.checked_add(relative_offset)
+    }
+
+    pub fn contains_range(self, relative_offset: u32, len: usize) -> bool {
+        let len = len as u32;
+        relative_offset
+            .checked_add(len)
+            .is_some_and(|end| end <= self.capacity)
+    }
 }
 
 impl RegionDescriptor {
