@@ -138,6 +138,7 @@ async fn main(spawner: Spawner) -> ! {
         Timer::after(Duration::from_millis(40)).await;
         let before = app_state.selected();
         potentiometer_input.poll_menu(&mut app_state.selected);
+        info!("Selected: {}", app_state.selected().unwrap());
 
         if action_button.is_low() {
             info!("Action button pressed");

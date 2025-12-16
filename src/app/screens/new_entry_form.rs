@@ -7,8 +7,8 @@ use crate::app::ScreenAction;
 use crate::app::screens::Screen;
 use crate::keepass::KeePassDb;
 
-pub const ITEMS: usize = 6;
-pub const LABELS: [&str; ITEMS] = ["Title", "Username", "Password", "URL", "Create", "Back"];
+pub const ITEMS: usize = 5;
+pub const LABELS: [&str; ITEMS] = ["Title", "Username", "Password", "Create", "Back"];
 
 #[derive(Debug, Format)]
 pub struct NewEntryFormScreen {
