@@ -23,7 +23,7 @@ use passbuddy::storage::layout::StorageLayout;
 use passbuddy::storage::region::DataRegion;
 use {esp_backtrace as _, esp_println as _};
 
-use passbuddy::input::Inputs;
+use passbuddy::input::{DebouncedButton, Inputs};
 use passbuddy::{app, display};
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
@@ -78,21 +78,13 @@ async fn main(spawner: Spawner) -> ! {
             .unwrap_or_else(|_| panic!("SSD1309 flush failed"));
     });
 
-    // TODO: Move the drawing inside an embassy task
-    /*
-    info!("Drawing menu");
-    terminal
-        .draw(|frame| app_state.draw_current_screen(frame))
-        .expect("to draw");
-    */
-
     // 4. Let's initialize the storage
     info!("Initializing storage");
     let mut storage = FlashStorage::new(peripherals.FLASH);
 
     // Debug helper: wipe the storage layout sector. If enabled, keep it *before*
     // `run_healthcheck()` so the layout gets bootstrapped again.
-    // StorageLayout::wipe_layout(&mut storage).unwrap();
+    StorageLayout::wipe_layout(&mut storage).unwrap();
 
     match StorageLayout::run_healthcheck(&mut storage) {
         Ok(_) => {
@@ -113,16 +105,16 @@ async fn main(spawner: Spawner) -> ! {
     // 5. Let's initialize the input devices
     info!("Setting the inputs");
     let mut potentiometer_input = Inputs::new(peripherals.ADC1, peripherals.GPIO1, app::MENU_ITEMS);
-    let action_button = Input::new(
+    let mut action_button = DebouncedButton::new(Input::new(
         peripherals.GPIO9,
         InputConfig::default().with_pull(esp_hal::gpio::Pull::Up),
-    );
+    ));
     //
     // 6. Get the key to decrypt the storage
     //
     // 7. Get the keepass groups
     let keepass_region = layout.region_handle(DataRegion::KeePassDb).unwrap();
-    if KeePassDb::check_if_exists(&mut storage, keepass_region).unwrap() == false {
+    if !KeePassDb::check_if_exists(&mut storage, keepass_region).unwrap() {
         info!("Creating a new keepass");
         KeePassDb::initialize_db(&mut storage, keepass_region).unwrap();
     }
@@ -136,17 +128,19 @@ async fn main(spawner: Spawner) -> ! {
 
     info!("Starting the loop");
     loop {
-        Timer::after(Duration::from_millis(40)).await;
+        Timer::after(Duration::from_millis(50)).await;
         let before = app_state.selected();
         potentiometer_input.poll_menu(&mut app_state.selected);
         info!("Selected: {}", app_state.selected().unwrap());
 
-        if action_button.is_low() {
+        let action_pressed = action_button.poll_pressed();
+
+        if action_pressed {
             info!("Action button pressed");
             app_state.on_select(&mut storage);
         }
 
-        if app_state.selected() != before || action_button.is_low() {
+        if app_state.selected() != before || action_pressed {
             terminal
                 .draw(|frame| app_state.draw_current_screen(frame))
                 .expect("to draw");

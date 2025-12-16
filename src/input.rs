@@ -1,5 +1,6 @@
 use esp_hal::analog::adc::{Adc, AdcConfig, AdcPin, Attenuation};
 use esp_hal::gpio::AnalogPin;
+use esp_hal::gpio::Input;
 use esp_hal::peripherals;
 use ratatui::widgets::ListState;
 
@@ -23,6 +24,57 @@ impl<'d> Inputs<'d> {
     /// Returns the latest potentiometer reading (raw ADC code).
     pub fn poll_menu(&mut self, state: &mut ListState) -> u16 {
         self.pot.poll_menu(state)
+    }
+}
+
+/// Debounces an active-low momentary button and emits a single `true` per press.
+///
+/// Call `poll_pressed()` at a fixed cadence (e.g. your main loop tick). A press
+/// is emitted on the first `low` read after the button has been released (`high`)
+/// for `release_streak_required` consecutive polls.
+pub struct DebouncedButton<'d> {
+    pin: Input<'d>,
+    armed: bool,
+    high_streak: u8,
+    release_streak_required: u8,
+}
+
+impl<'d> DebouncedButton<'d> {
+    pub fn new(pin: Input<'d>) -> Self {
+        Self {
+            armed: !pin.is_low(),
+            pin,
+            high_streak: 0,
+            // Default: 2 consecutive "released" reads before re-arming.
+            release_streak_required: 2,
+        }
+    }
+
+    pub fn with_release_streak_required(mut self, release_streak_required: u8) -> Self {
+        self.release_streak_required = release_streak_required.max(1);
+        self
+    }
+
+    /// Returns `true` once per physical press.
+    pub fn poll_pressed(&mut self) -> bool {
+        let low = self.pin.is_low();
+        if low {
+            self.high_streak = 0;
+            if self.armed {
+                self.armed = false;
+                return true;
+            }
+            return false;
+        }
+
+        if !self.armed {
+            self.high_streak = self.high_streak.saturating_add(1);
+            if self.high_streak >= self.release_streak_required {
+                self.armed = true;
+            }
+        }
+
+        false
     }
 }
 
