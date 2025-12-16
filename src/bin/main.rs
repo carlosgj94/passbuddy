@@ -20,7 +20,6 @@ use esp_storage::FlashStorage;
 use passbuddy::app::AppState;
 use passbuddy::keepass::KeePassDb;
 use passbuddy::storage::layout::StorageLayout;
-use passbuddy::storage::region::DataRegion;
 use {esp_backtrace as _, esp_println as _};
 
 use passbuddy::input::Inputs;
@@ -71,7 +70,7 @@ async fn main(spawner: Spawner) -> ! {
         .init(&mut Delay::new())
         .unwrap_or_else(|_| panic!("SSD1309 init failed"));
 
-    let mut app_state = AppState::new();
+    let app_state = AppState::new();
     let mut terminal = app::init_terminal_with_flush(&mut display, |display| {
         display
             .flush()
@@ -89,6 +88,11 @@ async fn main(spawner: Spawner) -> ! {
     // 4. Let's initialize the storage
     info!("Initializing storage");
     let mut storage = FlashStorage::new(peripherals.FLASH);
+
+    // Debug helper: wipe the storage layout sector. If enabled, keep it *before*
+    // `run_healthcheck()` so the layout gets bootstrapped again.
+    // StorageLayout::wipe_layout(&mut storage).unwrap();
+
     match StorageLayout::run_healthcheck(&mut storage) {
         Ok(_) => {
             info!("Storage found; good to read");
@@ -100,6 +104,7 @@ async fn main(spawner: Spawner) -> ! {
                 .expect("initial storage bootstraping error");
         }
     }
+
     let layout = StorageLayout::new(&mut storage);
     let magic_str = core::str::from_utf8(&layout.header.magic).unwrap_or("<invalid utf8>");
     info!("magic: {=str}", magic_str);
@@ -115,16 +120,14 @@ async fn main(spawner: Spawner) -> ! {
     // 6. Get the key to decrypt the storage
     //
     // 7. Get the keepass groups
-    let offset_to_regions = layout
-        .get_offset_to_region(DataRegion::KeePassDb)
-        .expect("to get offset");
-    if KeePassDb::check_if_exists(&mut storage, offset_to_regions).unwrap() == false {
+    let offset_to_keepass = layout.get_offset_to_keepass();
+    if KeePassDb::check_if_exists(&mut storage, offset_to_keepass).unwrap() == false {
         info!("Creating a new keepass");
-        KeePassDb::initialize_db(&mut storage, offset_to_regions).unwrap();
+        KeePassDb::initialize_db(&mut storage, offset_to_keepass).unwrap();
     }
 
     info!("Indexing the keepass database");
-    let kpdb = KeePassDb::new(&mut storage, offset_to_regions).unwrap();
+    let kpdb = KeePassDb::new(&mut storage, offset_to_keepass).unwrap();
     let mut app_state = app_state.with_kpdb(kpdb);
 
     // TODO: Spawn some tasks
@@ -138,7 +141,7 @@ async fn main(spawner: Spawner) -> ! {
 
         if action_button.is_low() {
             info!("Action button pressed");
-            app_state.on_select();
+            app_state.on_select(&mut storage);
         }
 
         if app_state.selected() != before || action_button.is_low() {

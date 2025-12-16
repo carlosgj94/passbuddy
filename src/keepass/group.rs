@@ -38,4 +38,27 @@ impl Group {
             times,
         }
     }
+
+    pub fn random() -> Self {
+        let mut name = [0u8; 64];
+        name[..b"Private".len()].copy_from_slice(b"Private");
+
+        Self {
+            group_id: 1,
+            name,
+            icon_id: None,
+            level: 0,
+            times: Times::zero(),
+        }
+    }
+
+    pub fn to_bytes(&self) -> [u8; GROUP_SIZE] {
+        let mut bytes = [0u8; GROUP_SIZE];
+        bytes[0..4].copy_from_slice(&self.group_id.to_le_bytes());
+        bytes[4..68].copy_from_slice(&self.name);
+        bytes[68..72].copy_from_slice(&self.icon_id.unwrap_or(0).to_le_bytes());
+        bytes[76..78].copy_from_slice(&self.level.to_le_bytes());
+        bytes[78..98].copy_from_slice(&self.times.to_bytes());
+        bytes
+    }
 }

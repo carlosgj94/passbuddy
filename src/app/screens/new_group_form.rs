@@ -5,10 +5,10 @@ use ratatui::widgets::{Block, List, ListState};
 
 use crate::app::ScreenAction;
 use crate::app::screens::Screen;
-use crate::keepass::KeePassDb;
+use crate::keepass::{Group, KeePassDb};
 
-pub const ITEMS: usize = 3;
-pub const LABELS: [&str; ITEMS] = ["Name", "Icon", "Back"];
+pub const ITEMS: usize = 4;
+pub const LABELS: [&str; ITEMS] = ["Name", "Icon", "Create", "Back"];
 
 #[derive(Debug, Format)]
 pub struct NewGroupForm;
@@ -34,7 +34,8 @@ impl Screen for NewGroupForm {
 
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {
         match selected {
-            Some(2) => ScreenAction::Pop,
+            Some(2) => ScreenAction::CreateGroup(Group::random()),
+            Some(3) => ScreenAction::Pop,
             _ => ScreenAction::None,
         }
     }

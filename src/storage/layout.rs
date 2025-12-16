@@ -10,8 +10,6 @@ use crate::storage::{
     region::{DataRegion, REGION_DESCRIPTOR_SIZE, RegionDescriptor},
 };
 use embedded_storage::Storage;
-
-const STORAGE_OFFSET: u32 = 0x200000;
 pub const REGION_COUNT: usize = 4;
 
 /// Fixed set of descriptors baked into firmware for now.
@@ -71,6 +69,15 @@ impl StorageLayout {
         Ok(())
     }
 
+    pub fn wipe_layout(storage: &mut FlashStorage) -> Result<(), StorageError> {
+        use embedded_storage::nor_flash::NorFlash;
+
+        let start = storage_magic_offset(); // 0x200000
+        let end = start + FlashStorage::SECTOR_SIZE; // + 4KiB
+
+        storage.erase(start, end).map_err(|_| StorageError::Io)
+    }
+
     pub fn bootstrap_storage_write(storage: &mut FlashStorage) -> Result<(), StorageError> {
         storage
             .write(storage_magic_offset(), &STORAGE_MAGIC)
@@ -125,8 +132,9 @@ impl StorageLayout {
     }
 
     pub fn get_offset_to_region(&self, region: DataRegion) -> Result<u32, StorageError> {
-        let offset_to_regions =
-            STORAGE_OFFSET + (LAYOUT_HEADER_SIZE + (REGION_DESCRIPTOR_SIZE * 4)) as u32;
+        let offset_to_regions = get_user_storage_offset()
+            + LAYOUT_HEADER_SIZE as u32
+            + (REGION_DESCRIPTOR_SIZE as u32 * REGION_COUNT as u32);
         match region {
             DataRegion::ProjectConfig => Ok(offset_to_regions),
             DataRegion::UserConfig => Ok(offset_to_regions + self.regions[0].capacity),
@@ -138,6 +146,15 @@ impl StorageLayout {
                 + self.regions[1].capacity
                 + self.regions[2].capacity),
         }
+    }
+
+    pub fn get_offset_to_keepass(&self) -> u32 {
+        self.get_offset_to_region(DataRegion::KeePassDb)
+            .unwrap_or_else(|_| {
+                get_user_storage_offset()
+                    + LAYOUT_HEADER_SIZE as u32
+                    + (REGION_DESCRIPTOR_SIZE as u32 * REGION_COUNT as u32)
+            })
     }
 }
 

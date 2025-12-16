@@ -36,6 +36,15 @@ pub struct Times {
 }
 
 impl Times {
+    pub fn zero() -> Self {
+        Self {
+            created: KdbTime::NEVER,
+            modified: KdbTime::NEVER,
+            accessed: KdbTime::NEVER,
+            expires: KdbTime::NEVER,
+        }
+    }
+
     pub fn new_from_bytes(bytes: &[u8]) -> Self {
         let created = KdbTime::from_raw(bytes[0..5].try_into().unwrap());
         let modified = KdbTime::from_raw(bytes[5..10].try_into().unwrap());
@@ -47,5 +56,14 @@ impl Times {
             accessed,
             expires,
         }
+    }
+
+    pub fn to_bytes(&self) -> [u8; 20] {
+        let mut bytes = [0u8; 20];
+        bytes[0..5].copy_from_slice(self.created.raw());
+        bytes[5..10].copy_from_slice(self.modified.raw());
+        bytes[10..15].copy_from_slice(self.accessed.raw());
+        bytes[15..20].copy_from_slice(self.expires.raw());
+        bytes
     }
 }

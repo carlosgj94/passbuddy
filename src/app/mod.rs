@@ -1,16 +1,17 @@
 pub mod screens;
 pub mod terminal;
 
+use esp_storage::FlashStorage;
 use ratatui::Frame;
 use ratatui::widgets::ListState;
 
-use defmt::{Format, info};
+use defmt::{Format, warn};
 pub use screens::select_group::ITEMS as MENU_ITEMS;
 pub use terminal::{init_terminal, init_terminal_with_flush};
 
 use screens::Screen;
 
-use crate::keepass::KeePassDb;
+use crate::keepass::{Group, KeePassDb};
 
 #[derive(Debug, Format)]
 pub enum Screens {
@@ -53,6 +54,7 @@ pub enum ScreenAction {
     None,
     Push(Screens),
     Pop,
+    CreateGroup(Group),
 }
 
 #[derive(Debug)]
@@ -131,12 +133,20 @@ impl AppState {
         screen.draw(frame, &mut self.selected.clone(), kpdb);
     }
 
-    pub fn on_select(&mut self) {
+    pub fn on_select(&mut self, storage: &mut FlashStorage) {
         let selected = self.selected();
         match self.get_current_screen_mut().on_select(selected) {
             ScreenAction::None => {}
             ScreenAction::Pop => self.pop_screen(),
             ScreenAction::Push(screen) => self.push_screen(screen),
+            ScreenAction::CreateGroup(group) => {
+                if let Some(kpdb) = self.kpdb.as_mut() {
+                    if let Err(err) = kpdb.create_group(group, storage) {
+                        warn!("create_group failed: {}", err);
+                    }
+                }
+                self.pop_screen();
+            }
         }
     }
 

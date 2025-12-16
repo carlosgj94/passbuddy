@@ -1,4 +1,5 @@
-use crate::keepass::header;
+use crate::storage::header::{LAYOUT_HEADER_SIZE, get_user_storage_offset};
+use crate::storage::region::{DataRegion, REGION_DESCRIPTOR_SIZE, RegionDescriptor};
 use defmt::info;
 use embedded_storage::ReadStorage;
 use embedded_storage::Storage;
@@ -98,11 +99,57 @@ impl KeePassDb {
         // 5. Return the database
         info!("Returning database");
         Ok(KeePassDb {
+            storage_offset: offset,
             signature1: u32::from_le_bytes(signature1_buffer),
             signature2: u32::from_le_bytes(signature2_buffer),
             header: header,
             groups: groups,
             entries: entries,
         })
+    }
+
+    pub fn create_group(
+        &mut self,
+        group: Group,
+        storage: &mut FlashStorage,
+    ) -> Result<(), KDBError> {
+        if self.header.num_groups >= 4 {
+            return Err(KDBError::DatabaseIntegrityError);
+        }
+
+        let group_index = self.header.num_groups;
+        let group_offset =
+            self.storage_offset + 8 + HEADER_SIZE as u32 + (group_index * GROUP_SIZE as u32);
+        let group_bytes = group.to_bytes();
+
+        // 1. Write group contents.
+        storage.write(group_offset, &group_bytes).unwrap();
+
+        // 2. Update internal region descriptor (best-effort bookkeeping).
+        let keepass_region_offset = get_user_storage_offset()
+            + LAYOUT_HEADER_SIZE as u32
+            + (REGION_DESCRIPTOR_SIZE as u32 * DataRegion::KeePassDb as u32);
+        let mut keepass_region_buffer = [0u8; REGION_DESCRIPTOR_SIZE];
+        storage
+            .read(keepass_region_offset, &mut keepass_region_buffer)
+            .unwrap();
+        let mut keepass_region = RegionDescriptor::new_from_bytes(&keepass_region_buffer);
+        keepass_region.used_len = keepass_region.used_len.saturating_add(GROUP_SIZE as u32);
+        storage
+            .write(keepass_region_offset, &keepass_region.to_bytes())
+            .unwrap();
+
+        // 3. Update and persist the KeePass header.
+        self.header.num_groups += 1;
+        let keepass_header_offset = self.storage_offset + 8;
+        storage
+            .write(keepass_header_offset, &self.header.to_bytes())
+            .unwrap();
+
+        // 4. Update in-memory cache.
+        self.groups[group_index as usize] = Some(group);
+
+        info!("Created group at offset {}", group_offset);
+        Ok(())
     }
 }
