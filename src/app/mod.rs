@@ -18,6 +18,7 @@ pub enum Screens {
     SelectGroup(screens::select_group::SelectGroupScreen),
     NewGroupForm(screens::new_group_form::NewGroupForm),
     SelectEntry(screens::select_entry::SelectEntryScreen),
+    NewEntryForm(screens::new_entry_form::NewEntryFormScreen),
 }
 
 impl Screens {
@@ -34,6 +35,12 @@ impl Screens {
             group_id,
         )))
     }
+
+    pub fn new_entry_form(group_id: u32) -> Self {
+        Self::NewEntryForm(screens::new_entry_form::NewEntryFormScreen::new(Some(
+            group_id,
+        )))
+    }
 }
 
 impl Screen for Screens {
@@ -46,6 +53,7 @@ impl Screen for Screens {
             Screens::SelectGroup(screen) => screen.draw(frame, selected, keepass),
             Screens::NewGroupForm(screen) => screen.draw(frame, selected, keepass),
             Screens::SelectEntry(screen) => screen.draw(frame, selected, keepass),
+            Screens::NewEntryForm(screen) => screen.draw(frame, selected, keepass),
         }
     }
 
@@ -54,6 +62,7 @@ impl Screen for Screens {
             Screens::SelectGroup(screen) => screen.on_select(selected),
             Screens::NewGroupForm(screen) => screen.on_select(selected),
             Screens::SelectEntry(screen) => screen.on_select(selected),
+            Screens::NewEntryForm(screen) => screen.on_select(selected),
         }
     }
 }

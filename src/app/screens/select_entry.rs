@@ -4,8 +4,8 @@ use ratatui::Frame;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, List, ListState};
 
-use crate::app::ScreenAction;
 use crate::app::screens::Screen;
+use crate::app::{ScreenAction, Screens};
 use crate::keepass::KeePassDb;
 
 pub const ITEMS: usize = 130; // Create entry + up to 128 entries + Back
@@ -88,6 +88,9 @@ impl Screen for SelectEntryScreen {
 
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {
         let selected = self.last_rendered_selected.or(selected);
+        if selected == Some(0) {
+            return ScreenAction::Push(Screens::new_entry_form(selected.unwrap() as u32));
+        }
         let Some(selected) = selected else {
             return ScreenAction::None;
         };
