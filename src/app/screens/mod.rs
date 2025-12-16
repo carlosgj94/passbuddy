@@ -1,4 +1,5 @@
 pub mod new_group_form;
+pub mod select_entry;
 pub mod select_group;
 use ratatui::{Frame, widgets::ListState};
 

@@ -17,6 +17,7 @@ use crate::keepass::{Group, KeePassDb};
 pub enum Screens {
     SelectGroup(screens::select_group::SelectGroupScreen),
     NewGroupForm(screens::new_group_form::NewGroupForm),
+    SelectEntry(screens::select_entry::SelectEntryScreen),
 }
 
 impl Screens {
@@ -26,6 +27,12 @@ impl Screens {
 
     pub fn new_group_form() -> Self {
         Self::NewGroupForm(screens::new_group_form::NewGroupForm::new())
+    }
+
+    pub fn select_entry(group_id: u32) -> Self {
+        Self::SelectEntry(screens::select_entry::SelectEntryScreen::new(Some(
+            group_id,
+        )))
     }
 }
 
@@ -38,6 +45,7 @@ impl Screen for Screens {
         match self {
             Screens::SelectGroup(screen) => screen.draw(frame, selected, keepass),
             Screens::NewGroupForm(screen) => screen.draw(frame, selected, keepass),
+            Screens::SelectEntry(screen) => screen.draw(frame, selected, keepass),
         }
     }
 
@@ -45,6 +53,7 @@ impl Screen for Screens {
         match self {
             Screens::SelectGroup(screen) => screen.on_select(selected),
             Screens::NewGroupForm(screen) => screen.on_select(selected),
+            Screens::SelectEntry(screen) => screen.on_select(selected),
         }
     }
 }

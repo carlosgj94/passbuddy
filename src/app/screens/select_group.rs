@@ -65,7 +65,7 @@ impl Screen for SelectGroupScreen {
         if selected.is_some() && selected == self.new_group_position {
             ScreenAction::Push(Screens::new_group_form())
         } else {
-            ScreenAction::None
+            ScreenAction::Push(Screens::select_entry(1))
         }
     }
 }
