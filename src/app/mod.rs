@@ -4,7 +4,7 @@ pub mod terminal;
 use ratatui::Frame;
 use ratatui::widgets::ListState;
 
-use defmt::Format;
+use defmt::{Format, info};
 pub use screens::select_group::ITEMS as MENU_ITEMS;
 pub use terminal::{init_terminal, init_terminal_with_flush};
 

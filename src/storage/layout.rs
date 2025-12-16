@@ -11,6 +11,7 @@ use crate::storage::{
 };
 use embedded_storage::Storage;
 
+const STORAGE_OFFSET: u32 = 0x200000;
 pub const REGION_COUNT: usize = 4;
 
 /// Fixed set of descriptors baked into firmware for now.
@@ -124,7 +125,8 @@ impl StorageLayout {
     }
 
     pub fn get_offset_to_region(&self, region: DataRegion) -> Result<u32, StorageError> {
-        let offset_to_regions = (LAYOUT_HEADER_SIZE + (REGION_DESCRIPTOR_SIZE * 4)) as u32;
+        let offset_to_regions =
+            STORAGE_OFFSET + (LAYOUT_HEADER_SIZE + (REGION_DESCRIPTOR_SIZE * 4)) as u32;
         match region {
             DataRegion::ProjectConfig => Ok(offset_to_regions),
             DataRegion::UserConfig => Ok(offset_to_regions + self.regions[0].capacity),

@@ -79,10 +79,12 @@ async fn main(spawner: Spawner) -> ! {
     });
 
     // TODO: Move the drawing inside an embassy task
+    /*
     info!("Drawing menu");
     terminal
         .draw(|frame| app_state.draw_current_screen(frame))
         .expect("to draw");
+    */
 
     // 4. Let's initialize the storage
     info!("Initializing storage");
@@ -103,6 +105,7 @@ async fn main(spawner: Spawner) -> ! {
     info!("magic: {=str}", magic_str);
 
     // 5. Let's initialize the input devices
+    info!("Setting the inputs");
     let mut potentiometer_input = Inputs::new(peripherals.ADC1, peripherals.GPIO1, app::MENU_ITEMS);
     let action_button = Input::new(
         peripherals.GPIO9,
@@ -115,12 +118,19 @@ async fn main(spawner: Spawner) -> ! {
     let offset_to_regions = layout
         .get_offset_to_region(DataRegion::KeePassDb)
         .expect("to get offset");
+    if KeePassDb::check_if_exists(&mut storage, offset_to_regions).unwrap() == false {
+        info!("Creating a new keepass");
+        KeePassDb::initialize_db(&mut storage, offset_to_regions).unwrap();
+    }
+
+    info!("Indexing the keepass database");
     let kpdb = KeePassDb::new(&mut storage, offset_to_regions).unwrap();
     let mut app_state = app_state.with_kpdb(kpdb);
 
     // TODO: Spawn some tasks
     let _ = spawner;
 
+    info!("Starting the loop");
     loop {
         Timer::after(Duration::from_millis(40)).await;
         let before = app_state.selected();
