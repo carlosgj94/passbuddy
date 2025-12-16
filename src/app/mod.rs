@@ -11,7 +11,7 @@ pub use terminal::{init_terminal, init_terminal_with_flush};
 
 use screens::Screen;
 
-use crate::keepass::{Group, KeePassDb};
+use crate::keepass::{Entry, Group, KeePassDb};
 
 #[derive(Debug, Format)]
 pub enum Screens {
@@ -73,6 +73,7 @@ pub enum ScreenAction {
     Push(Screens),
     Pop,
     CreateGroup(Group),
+    CreateEntry(Entry),
 }
 
 #[derive(Debug)]
@@ -161,6 +162,14 @@ impl AppState {
                 if let Some(kpdb) = self.kpdb.as_mut() {
                     if let Err(err) = kpdb.create_group(group, storage) {
                         warn!("create_group failed: {}", err);
+                    }
+                }
+                self.pop_screen();
+            }
+            ScreenAction::CreateEntry(entry) => {
+                if let Some(kpdb) = self.kpdb.as_mut() {
+                    if let Err(err) = kpdb.create_entry(entry, storage) {
+                        warn!("create_entry failed: {}", err);
                     }
                 }
                 self.pop_screen();

@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, List, ListState};
 
 use crate::app::ScreenAction;
 use crate::app::screens::Screen;
-use crate::keepass::KeePassDb;
+use crate::keepass::{Entry, KeePassDb};
 
 pub const ITEMS: usize = 5;
 pub const LABELS: [&str; ITEMS] = ["Title", "Username", "Password", "Create", "Back"];
@@ -42,6 +42,9 @@ impl Screen for NewEntryFormScreen {
 
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {
         match selected {
+            Some(3) => {
+                ScreenAction::CreateEntry(Entry::random_with_group_id(self.group_id.unwrap_or(0)))
+            }
             Some(4) => ScreenAction::None,
             Some(5) => ScreenAction::Pop,
             _ => ScreenAction::None,

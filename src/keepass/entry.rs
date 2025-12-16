@@ -22,6 +22,37 @@ pub struct Entry {
 }
 
 impl Entry {
+    pub fn random_with_group_id(group_id: u32) -> Self {
+        let uuid: [u8; 16] = 1u128.to_le_bytes();
+
+        let mut title = [0u8; 64];
+        title[..b"Google".len()].copy_from_slice(b"Google");
+
+        let mut username = [0u8; 64];
+        username[..b"carlos".len()].copy_from_slice(b"carlos");
+
+        let mut password = [0u8; 64];
+        password[..b"123456".len()].copy_from_slice(b"123456");
+
+        let url = [0u8; 128];
+
+        let icon_id = None;
+        let times = Times::zero();
+        let autotype = true;
+
+        Entry {
+            uuid,
+            group_id,
+            title,
+            username,
+            password,
+            url,
+            icon_id,
+            times,
+            autotype,
+        }
+    }
+
     pub fn new_from_bytes(bytes: &[u8]) -> Self {
         let uuid: [u8; 16] = bytes[0..16].try_into().unwrap();
         let group_id = u32::from_le_bytes(bytes[16..20].try_into().unwrap());
@@ -53,5 +84,25 @@ impl Entry {
             times,
             autotype,
         }
+    }
+
+    pub fn to_bytes(&self) -> [u8; ENTRY_SIZE] {
+        let mut bytes = [0u8; ENTRY_SIZE];
+
+        bytes[0..16].copy_from_slice(&self.uuid);
+        bytes[16..20].copy_from_slice(&self.group_id.to_le_bytes());
+
+        bytes[20..84].copy_from_slice(&self.title);
+        bytes[84..148].copy_from_slice(&self.username);
+        bytes[148..212].copy_from_slice(&self.password);
+        bytes[212..340].copy_from_slice(&self.url);
+
+        bytes[340..344].copy_from_slice(&self.icon_id.unwrap_or(0).to_le_bytes());
+        bytes[344..348].copy_from_slice(&(self.icon_id.is_some() as u32).to_le_bytes());
+
+        bytes[348..368].copy_from_slice(&self.times.to_bytes());
+        bytes[368] = self.autotype as u8;
+
+        bytes
     }
 }

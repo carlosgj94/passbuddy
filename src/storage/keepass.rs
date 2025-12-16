@@ -152,4 +152,53 @@ impl KeePassDb {
         info!("Created group at offset {}", group_offset);
         Ok(())
     }
+
+    pub fn create_entry(
+        &mut self,
+        entry: Entry,
+        storage: &mut FlashStorage,
+    ) -> Result<(), KDBError> {
+        if self.header.num_entries >= 128 {
+            return Err(KDBError::DatabaseIntegrityError);
+        }
+
+        // 1. Calculate the offset for the new entry
+        let entry_index = self.header.num_entries;
+        let entry_offset = self.storage_offset // Keepass offset
+            + 8 // two magic signatures
+            + HEADER_SIZE as u32 // This is the keepass header
+            + (4 * GROUP_SIZE) as u32 // Taking as much space for groups to avoid collisions
+            + (entry_index * ENTRY_SIZE as u32);
+        let mut entry_bytes = entry.to_bytes();
+
+        // 2. Write the entry contents
+        storage.write(entry_offset, &mut entry_bytes).unwrap();
+
+        // 3. Update internal region descriptors (for bookkeeping)
+        let keepass_region_offset = get_user_storage_offset()
+            + LAYOUT_HEADER_SIZE as u32
+            + (REGION_DESCRIPTOR_SIZE as u32 * DataRegion::KeePassDb as u32);
+        let mut keepass_region_buffer = [0u8; REGION_DESCRIPTOR_SIZE];
+        storage
+            .read(keepass_region_offset, &mut keepass_region_buffer)
+            .unwrap();
+        let mut keepass_region = RegionDescriptor::new_from_bytes(&keepass_region_buffer);
+        keepass_region.used_len = keepass_region.used_len.saturating_add(ENTRY_SIZE as u32);
+        storage
+            .write(keepass_region_offset, &keepass_region.to_bytes())
+            .unwrap();
+
+        // 4. Update and persist the keepass header
+        self.header.num_entries += 1;
+        let keepass_header_offset = self.storage_offset + 8;
+        storage
+            .write(keepass_header_offset, &self.header.to_bytes())
+            .unwrap();
+
+        // 4. Update in-memory cache.
+        self.entries[entry_index as usize] = Some(entry);
+
+        info!("Created entry at offset {}", entry_offset);
+        Ok(())
+    }
 }
