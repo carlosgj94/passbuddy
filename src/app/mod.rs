@@ -23,6 +23,7 @@ pub enum Screens {
     NewEntryForm(screens::new_entry_form::NewEntryFormScreen),
     EntryOptions(screens::entry_options::EntryOptionsScreen),
     TextEntryForm(screens::text_entry_form::TextEntryFormScreen),
+    ActionCompleted(screens::action_completed::ActionCompletedScreen),
 }
 
 impl Screens {
@@ -56,6 +57,12 @@ impl Screens {
         )
     }
 
+    pub fn action_completed(message: &str) -> Self {
+        Self::ActionCompleted(screens::action_completed::ActionCompletedScreen::new(
+            message,
+        ))
+    }
+
     pub fn item_count(&self, kpdb: &KeePassDb) -> usize {
         match self {
             Screens::SelectGroup(screen) => screen.item_count(kpdb),
@@ -64,6 +71,7 @@ impl Screens {
             Screens::NewEntryForm(_) => screens::new_entry_form::ITEMS,
             Screens::EntryOptions(screen) => screen.item_count(kpdb),
             Screens::TextEntryForm(screen) => screen.item_count(),
+            Screens::ActionCompleted(_) => 0,
         }
     }
 }
@@ -81,6 +89,7 @@ impl Screen for Screens {
             Screens::NewEntryForm(screen) => screen.draw(frame, selected, keepass),
             Screens::EntryOptions(screen) => screen.draw(frame, selected, keepass),
             Screens::TextEntryForm(screen) => screen.draw(frame, selected, keepass),
+            Screens::ActionCompleted(screen) => screen.draw(frame, selected, keepass),
         }
     }
 
@@ -92,6 +101,19 @@ impl Screen for Screens {
             Screens::NewEntryForm(screen) => screen.on_select(selected),
             Screens::EntryOptions(screen) => screen.on_select(selected),
             Screens::TextEntryForm(screen) => screen.on_select(selected),
+            Screens::ActionCompleted(screen) => screen.on_select(selected),
+        }
+    }
+
+    fn on_tick(&mut self) -> ScreenAction {
+        match self {
+            Screens::SelectGroup(screen) => screen.on_tick(),
+            Screens::NewGroupForm(screen) => screen.on_tick(),
+            Screens::SelectEntry(screen) => screen.on_tick(),
+            Screens::NewEntryForm(screen) => screen.on_tick(),
+            Screens::EntryOptions(screen) => screen.on_tick(),
+            Screens::TextEntryForm(screen) => screen.on_tick(),
+            Screens::ActionCompleted(screen) => screen.on_tick(),
         }
     }
 }
@@ -215,7 +237,17 @@ impl AppState {
         // Ensure the selection is valid for the current screen.
         self.apply_navigation(0);
         let selected = self.selected();
-        match self.get_current_screen_mut().on_select(selected) {
+        let action = self.get_current_screen_mut().on_select(selected);
+        self.handle_screen_action(action, storage);
+    }
+
+    pub fn on_tick(&mut self, storage: &mut FlashStorage) {
+        let action = self.get_current_screen_mut().on_tick();
+        self.handle_screen_action(action, storage);
+    }
+
+    fn handle_screen_action(&mut self, action: ScreenAction, storage: &mut FlashStorage) {
+        match action {
             ScreenAction::None => {}
             ScreenAction::Pop => self.pop_screen(),
             ScreenAction::Push(screen) => self.push_screen(screen),
@@ -286,20 +318,36 @@ impl AppState {
                 self.apply_navigation(0);
             }
             ScreenAction::CreateGroup(group) => {
+                let mut success = false;
                 if let Some(kpdb) = self.kpdb.as_mut() {
-                    if let Err(err) = kpdb.create_group(group, storage) {
-                        warn!("create_group failed: {}", err);
-                    }
+                    success = match kpdb.create_group(group, storage) {
+                        Ok(_) => true,
+                        Err(err) => {
+                            warn!("create_group failed: {}", err);
+                            false
+                        }
+                    };
                 }
                 self.pop_screen();
+                if success {
+                    self.push_screen(Screens::action_completed("Group created"));
+                }
             }
             ScreenAction::CreateEntry(entry) => {
+                let mut success = false;
                 if let Some(kpdb) = self.kpdb.as_mut() {
-                    if let Err(err) = kpdb.create_entry(entry, storage) {
-                        warn!("create_entry failed: {}", err);
-                    }
+                    success = match kpdb.create_entry(entry, storage) {
+                        Ok(_) => true,
+                        Err(err) => {
+                            warn!("create_entry failed: {}", err);
+                            false
+                        }
+                    };
                 }
                 self.pop_screen();
+                if success {
+                    self.push_screen(Screens::action_completed("Entry created"));
+                }
             }
             ScreenAction::TypeEntryPassword(entry_index) => {
                 if let Some(kpdb) = self.kpdb.as_mut() {

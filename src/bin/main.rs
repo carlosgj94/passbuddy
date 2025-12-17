@@ -135,7 +135,6 @@ async fn main(spawner: Spawner) -> ! {
     info!("Starting the loop");
     loop {
         Timer::after(Duration::from_millis(50)).await;
-        let before = app_state.selected();
         let input_event = inputs.poll();
         app_state.apply_navigation(input_event.delta);
 
@@ -146,10 +145,10 @@ async fn main(spawner: Spawner) -> ! {
             app_state.on_select(&mut storage);
         }
 
-        if app_state.selected() != before || action_pressed {
-            terminal
-                .draw(|frame| app_state.draw_current_screen(frame))
-                .expect("to draw");
-        }
+        app_state.on_tick(&mut storage);
+
+        terminal
+            .draw(|frame| app_state.draw_current_screen(frame))
+            .expect("to draw");
     }
 }
