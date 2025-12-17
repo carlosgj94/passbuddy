@@ -3,8 +3,8 @@ use ratatui::Frame;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, List, ListState};
 
-use crate::app::ScreenAction;
 use crate::app::screens::Screen;
+use crate::app::{ScreenAction, Screens};
 use crate::keepass::{Group, KeePassDb};
 
 pub const ITEMS: usize = 4;
@@ -34,6 +34,8 @@ impl Screen for NewGroupForm {
 
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {
         match selected {
+            Some(0) => ScreenAction::Push(Screens::text_entry_form()),
+            Some(1) => ScreenAction::Push(Screens::text_entry_form()),
             Some(2) => ScreenAction::CreateGroup(Group::random()),
             Some(3) => ScreenAction::Pop,
             _ => ScreenAction::None,
