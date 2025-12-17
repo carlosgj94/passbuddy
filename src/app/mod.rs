@@ -2,6 +2,7 @@ pub mod screens;
 pub mod terminal;
 
 use esp_storage::FlashStorage;
+use heapless::String;
 use ratatui::Frame;
 use ratatui::widgets::ListState;
 
@@ -43,8 +44,10 @@ impl Screens {
         )))
     }
 
-    pub fn text_entry_form() -> Self {
-        Self::TextEntryForm(screens::text_entry_form::TextEntryFormScreen::new())
+    pub fn text_entry_form(initial_text: &str) -> Self {
+        Self::TextEntryForm(
+            screens::text_entry_form::TextEntryFormScreen::new_with_text(initial_text),
+        )
     }
 }
 
@@ -81,6 +84,7 @@ pub enum ScreenAction {
     Pop,
     CreateGroup(Group),
     CreateEntry(Entry),
+    TextEntrySubmit(String<{ screens::text_entry_form::MAX_TEXT_LEN }>),
 }
 
 #[derive(Debug)]
@@ -165,6 +169,12 @@ impl AppState {
             ScreenAction::None => {}
             ScreenAction::Pop => self.pop_screen(),
             ScreenAction::Push(screen) => self.push_screen(screen),
+            ScreenAction::TextEntrySubmit(text) => {
+                self.pop_screen();
+                if let Screens::NewGroupForm(screen) = self.get_current_screen_mut() {
+                    screen.set_name(text.as_str());
+                }
+            }
             ScreenAction::CreateGroup(group) => {
                 if let Some(kpdb) = self.kpdb.as_mut() {
                     if let Err(err) = kpdb.create_group(group, storage) {

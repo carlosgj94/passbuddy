@@ -35,6 +35,16 @@ pub struct TextEntryFormScreen {
 }
 
 impl TextEntryFormScreen {
+    pub fn new_with_text(initial_text: &str) -> Self {
+        let mut screen = Self {
+            text: String::new(),
+            keyboard_scroll_x: 0,
+            last_rendered_selected: None,
+        };
+        screen.set_text(initial_text);
+        screen
+    }
+
     pub fn text(&self) -> &str {
         self.text.as_str()
     }
@@ -252,7 +262,7 @@ impl Screen for TextEntryFormScreen {
         };
 
         match self.key_at(selected) {
-            Some(KeyboardKey::Submit) => ScreenAction::Pop,
+            Some(KeyboardKey::Submit) => ScreenAction::TextEntrySubmit(self.text.clone()),
             Some(KeyboardKey::Letter(i)) => {
                 let ch = (b'A' + i) as char;
                 let _ = self.text.push(ch);
