@@ -1,7 +1,12 @@
 use esp_hal::gpio::{Input, InputConfig, Pull};
 use esp_hal::pcnt::{Pcnt, channel};
 use esp_hal::peripherals;
-use ratatui::widgets::ListState;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct InputEvent {
+    pub delta: i16,
+    pub pressed: bool,
+}
 
 pub struct Inputs<'d> {
     encoder: RotaryEncoder<'d>,
@@ -26,14 +31,11 @@ impl<'d> Inputs<'d> {
         }
     }
 
-    /// Reads inputs and mutates UI state accordingly.
-    pub fn poll_menu(&mut self, state: &mut ListState) -> i16 {
-        self.encoder.poll_menu(state)
-    }
-
-    /// Returns `true` once per physical press.
-    pub fn poll_pressed(&mut self) -> bool {
-        self.button.poll_pressed()
+    pub fn poll(&mut self) -> InputEvent {
+        InputEvent {
+            delta: self.encoder.poll_delta(),
+            pressed: self.button.poll_pressed(),
+        }
     }
 }
 
@@ -122,21 +124,11 @@ impl<'d> RotaryEncoder<'d> {
         Self { pcnt, last_count }
     }
 
-    /// Updates selection based on encoder delta since the last call.
-    ///
-    /// Returns the raw delta in PCNT counts.
-    pub fn poll_menu(&mut self, state: &mut ListState) -> i16 {
+    /// Returns the encoder delta (PCNT counts) since the last call.
+    pub fn poll_delta(&mut self) -> i16 {
         let count = self.pcnt.unit0.counter.get();
         let delta = count.wrapping_sub(self.last_count);
         self.last_count = count;
-
-        let steps = i32::from(delta);
-        if steps > 0 {
-            state.scroll_down_by(steps as u16);
-        } else if steps < 0 {
-            state.scroll_up_by((-steps) as u16);
-        }
-
         delta
     }
 }

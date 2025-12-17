@@ -49,6 +49,16 @@ impl Screens {
             screens::text_entry_form::TextEntryFormScreen::new_with_text(initial_text),
         )
     }
+
+    pub fn item_count(&self, kpdb: &KeePassDb) -> usize {
+        match self {
+            Screens::SelectGroup(screen) => screen.item_count(kpdb),
+            Screens::NewGroupForm(_) => screens::new_group_form::ITEMS,
+            Screens::SelectEntry(screen) => screen.item_count(kpdb),
+            Screens::NewEntryForm(_) => screens::new_entry_form::ITEMS,
+            Screens::TextEntryForm(screen) => screen.item_count(),
+        }
+    }
 }
 
 impl Screen for Screens {
@@ -112,6 +122,34 @@ impl AppState {
         self
     }
 
+    /// Applies a rotary navigation delta to the current menu selection.
+    ///
+    /// The selection is clamped to the valid item range for the current screen.
+    pub fn apply_navigation(&mut self, delta: i16) {
+        let item_count = match self.kpdb.as_ref() {
+            Some(kpdb) => self.get_current_screen().item_count(kpdb),
+            None => 0,
+        };
+
+        if item_count == 0 {
+            self.selected.select(None);
+            return;
+        }
+
+        let current = self.selected.selected().unwrap_or(0) as u64;
+        let current = current.min(i64::MAX as u64) as i64;
+        let mut next = current.saturating_add(i64::from(delta));
+        let max = item_count.saturating_sub(1) as i64;
+
+        if next < 0 {
+            next = 0;
+        } else if next > max {
+            next = max;
+        }
+
+        self.selected.select(Some(next as usize));
+    }
+
     pub fn select_next(&mut self) {
         self.selected.select_next();
     }
@@ -159,11 +197,12 @@ impl AppState {
             .as_mut()
             .unwrap_or_else(|| unreachable!("current_screen_index returned empty slot"));
 
-        // TODO: avoid cloning `selected`; `render_stateful_widget` updates offsets.
-        screen.draw(frame, &mut self.selected.clone(), kpdb);
+        screen.draw(frame, &mut self.selected, kpdb);
     }
 
     pub fn on_select(&mut self, storage: &mut FlashStorage) {
+        // Ensure the selection is valid for the current screen.
+        self.apply_navigation(0);
         let selected = self.selected();
         match self.get_current_screen_mut().on_select(selected) {
             ScreenAction::None => {}
@@ -201,6 +240,8 @@ impl AppState {
         for i in 0..self.screen_stack.len() {
             if self.screen_stack[i].is_none() {
                 self.screen_stack[i] = Some(screen);
+                self.selected.select_first();
+                *self.selected.offset_mut() = 0;
                 return;
             }
         }
@@ -210,6 +251,8 @@ impl AppState {
         for i in (1..self.screen_stack.len()).rev() {
             if self.screen_stack[i].is_some() {
                 self.screen_stack[i] = None;
+                self.selected.select_first();
+                *self.selected.offset_mut() = 0;
                 return;
             }
         }

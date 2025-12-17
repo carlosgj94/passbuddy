@@ -15,6 +15,36 @@ pub struct SelectGroupScreen {
     new_group_position: Option<usize>,
 }
 
+impl SelectGroupScreen {
+    pub fn item_count(&self, keepass: &KeePassDb) -> usize {
+        let num_groups = (keepass.header.num_groups as usize).min(ITEMS);
+        let mut count = 0usize;
+
+        for i in 0..num_groups {
+            let Some(group) = keepass.groups[i].as_ref() else {
+                break;
+            };
+
+            let name = &group.name;
+            let end = name.iter().position(|&b| b == 0).unwrap_or(name.len());
+            let Ok(label) = core::str::from_utf8(&name[..end]) else {
+                continue;
+            };
+            if label.is_empty() {
+                continue;
+            }
+
+            count = count.saturating_add(1);
+        }
+
+        if count < ITEMS {
+            count.saturating_add(1)
+        } else {
+            count
+        }
+    }
+}
+
 impl Screen for SelectGroupScreen {
     fn new() -> Self {
         Self {

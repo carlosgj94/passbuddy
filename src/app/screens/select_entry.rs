@@ -27,6 +27,31 @@ impl SelectEntryScreen {
             last_rendered_selected: None,
         }
     }
+
+    pub fn item_count(&self, keepass: &KeePassDb) -> usize {
+        let mut count = 0usize;
+
+        if let Some(group_id) = self.group_id {
+            count = count.saturating_add(1); // Create entry
+
+            for entry in keepass.entries.iter().filter_map(|entry| entry.as_ref()) {
+                if entry.group_id != group_id {
+                    continue;
+                }
+                // Reserve the last slot for "Back".
+                if count + 1 >= ITEMS {
+                    break;
+                }
+
+                count = count.saturating_add(1);
+            }
+        }
+
+        // Back
+        count = count.saturating_add(1);
+
+        count.min(ITEMS)
+    }
 }
 
 impl Screen for SelectEntryScreen {

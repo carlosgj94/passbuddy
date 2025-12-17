@@ -131,10 +131,13 @@ async fn main(spawner: Spawner) -> ! {
     loop {
         Timer::after(Duration::from_millis(50)).await;
         let before = app_state.selected();
-        inputs.poll_menu(&mut app_state.selected);
-        info!("Selected: {}", app_state.selected().unwrap());
+        let input_event = inputs.poll();
+        app_state.apply_navigation(input_event.delta);
+        if let Some(selected) = app_state.selected() {
+            info!("Selected: {}", selected);
+        }
 
-        let action_pressed = inputs.poll_pressed();
+        let action_pressed = input_event.pressed;
 
         if action_pressed {
             info!("Action button pressed");

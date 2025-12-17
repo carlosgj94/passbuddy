@@ -71,6 +71,10 @@ impl TextEntryFormScreen {
         submit + LETTERS.len() + 3
     }
 
+    pub fn item_count(&self) -> usize {
+        self.key_count()
+    }
+
     fn key_at(&self, index: usize) -> Option<KeyboardKey> {
         let mut idx = index;
 
