@@ -171,9 +171,11 @@ impl AppState {
             ScreenAction::Push(screen) => self.push_screen(screen),
             ScreenAction::TextEntrySubmit(text) => {
                 self.pop_screen();
-                if let Screens::NewGroupForm(screen) = self.get_current_screen_mut() {
-                    screen.set_name(text.as_str());
-                }
+                match self.get_current_screen_mut() {
+                    Screens::NewGroupForm(screen) => screen.set_name(text.as_str()),
+                    Screens::NewEntryForm(screen) => screen.apply_text_entry_submit(text.as_str()),
+                    _ => {}
+                };
             }
             ScreenAction::CreateGroup(group) => {
                 if let Some(kpdb) = self.kpdb.as_mut() {
