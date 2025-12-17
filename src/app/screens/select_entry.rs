@@ -16,6 +16,7 @@ pub struct SelectEntryScreen {
     back_position: usize,
     initial_selection_applied: bool,
     last_rendered_selected: Option<usize>,
+    entry_indices: Vec<usize, 128>,
 }
 
 impl SelectEntryScreen {
@@ -25,6 +26,7 @@ impl SelectEntryScreen {
             back_position: 0,
             initial_selection_applied: false,
             last_rendered_selected: None,
+            entry_indices: Vec::new(),
         }
     }
 
@@ -61,6 +63,7 @@ impl Screen for SelectEntryScreen {
             back_position: 0,
             initial_selection_applied: false,
             last_rendered_selected: None,
+            entry_indices: Vec::new(),
         }
     }
 
@@ -69,11 +72,16 @@ impl Screen for SelectEntryScreen {
             .border_style(Style::new().bold().green())
             .title(" Select entry ");
 
+        self.entry_indices.clear();
+
         let mut items: Vec<&str, ITEMS> = Vec::new();
         if let Some(group_id) = self.group_id {
             let _ = items.push("Create entry");
 
-            for entry in keepass.entries.iter().filter_map(|entry| entry.as_ref()) {
+            for (idx, entry) in keepass.entries.iter().enumerate() {
+                let Some(entry) = entry.as_ref() else {
+                    continue;
+                };
                 if entry.group_id != group_id {
                     continue;
                 }
@@ -91,6 +99,7 @@ impl Screen for SelectEntryScreen {
                 };
 
                 let _ = items.push(label);
+                let _ = self.entry_indices.push(idx);
             }
         }
         let _ = items.push("Back");
@@ -113,12 +122,19 @@ impl Screen for SelectEntryScreen {
 
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {
         let selected = self.last_rendered_selected.or(selected);
-        if selected == Some(0) {
+        if self.group_id.is_some() && selected == Some(0) {
             return ScreenAction::Push(Screens::new_entry_form(self.group_id.unwrap_or(0)));
         }
         let Some(selected) = selected else {
             return ScreenAction::None;
         };
+
+        if selected > 0 && selected < self.back_position {
+            let entry_row = selected.saturating_sub(1);
+            if let Some(entry_index) = self.entry_indices.get(entry_row).copied() {
+                return ScreenAction::Push(Screens::entry_options(entry_index));
+            }
+        }
 
         if selected == self.back_position {
             return ScreenAction::Pop;

@@ -20,6 +20,7 @@ pub enum Screens {
     NewGroupForm(screens::new_group_form::NewGroupForm),
     SelectEntry(screens::select_entry::SelectEntryScreen),
     NewEntryForm(screens::new_entry_form::NewEntryFormScreen),
+    EntryOptions(screens::entry_options::EntryOptionsScreen),
     TextEntryForm(screens::text_entry_form::TextEntryFormScreen),
 }
 
@@ -44,6 +45,10 @@ impl Screens {
         )))
     }
 
+    pub fn entry_options(entry_index: usize) -> Self {
+        Self::EntryOptions(screens::entry_options::EntryOptionsScreen::new(entry_index))
+    }
+
     pub fn text_entry_form(initial_text: &str) -> Self {
         Self::TextEntryForm(
             screens::text_entry_form::TextEntryFormScreen::new_with_text(initial_text),
@@ -56,6 +61,7 @@ impl Screens {
             Screens::NewGroupForm(_) => screens::new_group_form::ITEMS,
             Screens::SelectEntry(screen) => screen.item_count(kpdb),
             Screens::NewEntryForm(_) => screens::new_entry_form::ITEMS,
+            Screens::EntryOptions(screen) => screen.item_count(kpdb),
             Screens::TextEntryForm(screen) => screen.item_count(),
         }
     }
@@ -72,6 +78,7 @@ impl Screen for Screens {
             Screens::NewGroupForm(screen) => screen.draw(frame, selected, keepass),
             Screens::SelectEntry(screen) => screen.draw(frame, selected, keepass),
             Screens::NewEntryForm(screen) => screen.draw(frame, selected, keepass),
+            Screens::EntryOptions(screen) => screen.draw(frame, selected, keepass),
             Screens::TextEntryForm(screen) => screen.draw(frame, selected, keepass),
         }
     }
@@ -82,6 +89,7 @@ impl Screen for Screens {
             Screens::NewGroupForm(screen) => screen.on_select(selected),
             Screens::SelectEntry(screen) => screen.on_select(selected),
             Screens::NewEntryForm(screen) => screen.on_select(selected),
+            Screens::EntryOptions(screen) => screen.on_select(selected),
             Screens::TextEntryForm(screen) => screen.on_select(selected),
         }
     }
@@ -95,6 +103,7 @@ pub enum ScreenAction {
     CreateGroup(Group),
     CreateEntry(Entry),
     TextEntrySubmit(String<{ screens::text_entry_form::MAX_TEXT_LEN }>),
+    ToggleEntryAutotype(usize),
 }
 
 #[derive(Debug)]
@@ -213,8 +222,66 @@ impl AppState {
                 match self.get_current_screen_mut() {
                     Screens::NewGroupForm(screen) => screen.set_name(text.as_str()),
                     Screens::NewEntryForm(screen) => screen.apply_text_entry_submit(text.as_str()),
+                    Screens::EntryOptions(screen) => {
+                        let Some(field) = screen.take_pending_field() else {
+                            return;
+                        };
+                        let entry_index = screen.entry_index();
+                        if let Some(kpdb) = self.kpdb.as_mut() {
+                            let Some(existing) = kpdb
+                                .entries
+                                .get(entry_index)
+                                .and_then(|entry| entry.as_ref())
+                            else {
+                                return;
+                            };
+                            let mut entry = *existing;
+                            match field {
+                                screens::entry_options::EntryField::Title => {
+                                    fill_fixed(&mut entry.title, text.as_str());
+                                }
+                                screens::entry_options::EntryField::Username => {
+                                    fill_fixed(&mut entry.username, text.as_str());
+                                }
+                            }
+                            if let Err(err) = kpdb.update_entry(entry_index, entry, storage) {
+                                warn!("update_entry failed: {}", err);
+                            }
+                        }
+                    }
                     _ => {}
                 };
+            }
+            ScreenAction::ToggleEntryAutotype(entry_index) => {
+                let on_entry_options =
+                    matches!(self.get_current_screen(), Screens::EntryOptions(_));
+                if let Some(kpdb) = self.kpdb.as_mut() {
+                    let Some(existing) = kpdb
+                        .entries
+                        .get(entry_index)
+                        .and_then(|entry| entry.as_ref())
+                    else {
+                        return;
+                    };
+                    let mut entry = *existing;
+                    entry.autotype = !entry.autotype;
+                    if let Err(err) = kpdb.update_entry(entry_index, entry, storage) {
+                        warn!("update_entry failed: {}", err);
+                    }
+
+                    if on_entry_options {
+                        if let Some(updated) = kpdb
+                            .entries
+                            .get(entry_index)
+                            .and_then(|entry| entry.as_ref())
+                        {
+                            let autotype_row = if updated.autotype { 4 } else { 3 };
+                            self.selected.select(Some(autotype_row));
+                            *self.selected.offset_mut() = 0;
+                        }
+                    }
+                }
+                self.apply_navigation(0);
             }
             ScreenAction::CreateGroup(group) => {
                 if let Some(kpdb) = self.kpdb.as_mut() {
@@ -263,4 +330,11 @@ impl Default for AppState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn fill_fixed(dst: &mut [u8], value: &str) {
+    dst.fill(0);
+    let bytes = value.as_bytes();
+    let len = bytes.len().min(dst.len());
+    dst[..len].copy_from_slice(&bytes[..len]);
 }

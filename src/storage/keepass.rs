@@ -298,4 +298,29 @@ impl KeePassDb {
         info!("Created entry at offset {}", entry_offset);
         Ok(())
     }
+
+    pub fn update_entry(
+        &mut self,
+        entry_index: usize,
+        entry: Entry,
+        storage: &mut FlashStorage,
+    ) -> Result<(), KDBError> {
+        if entry_index >= MAX_ENTRIES as usize {
+            return Err(KDBError::DatabaseIntegrityError);
+        }
+        if entry_index >= self.header.num_entries as usize {
+            return Err(KDBError::DatabaseIntegrityError);
+        }
+
+        let relative_offset = entries_offset_rel() + ((entry_index as u32) * ENTRY_SIZE as u32);
+        let entry_offset = checked_absolute(self.storage, relative_offset, ENTRY_SIZE)?;
+
+        let entry_bytes = entry.to_bytes();
+        storage
+            .write(entry_offset, &entry_bytes)
+            .map_err(|_| KDBError::DatabaseIntegrityError)?;
+
+        self.entries[entry_index] = Some(entry);
+        Ok(())
+    }
 }
