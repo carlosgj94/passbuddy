@@ -11,7 +11,7 @@ use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::delay::Delay;
-use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig};
+use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::spi::{Mode as SpiMode, master::Config as SpiConfig, master::Spi};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
@@ -23,7 +23,7 @@ use passbuddy::storage::layout::StorageLayout;
 use passbuddy::storage::region::DataRegion;
 use {esp_backtrace as _, esp_println as _};
 
-use passbuddy::input::{DebouncedButton, Inputs};
+use passbuddy::input::Inputs;
 use passbuddy::{app, display};
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
@@ -104,11 +104,12 @@ async fn main(spawner: Spawner) -> ! {
 
     // 5. Let's initialize the input devices
     info!("Setting the inputs");
-    let mut potentiometer_input = Inputs::new(peripherals.ADC1, peripherals.GPIO1, app::MENU_ITEMS);
-    let mut action_button = DebouncedButton::new(Input::new(
-        peripherals.GPIO9,
-        InputConfig::default().with_pull(esp_hal::gpio::Pull::Up),
-    ));
+    let mut inputs = Inputs::new(
+        peripherals.PCNT,
+        peripherals.GPIO15,
+        peripherals.GPIO17,
+        peripherals.GPIO16,
+    );
     //
     // 6. Get the key to decrypt the storage
     //
@@ -130,10 +131,10 @@ async fn main(spawner: Spawner) -> ! {
     loop {
         Timer::after(Duration::from_millis(50)).await;
         let before = app_state.selected();
-        potentiometer_input.poll_menu(&mut app_state.selected);
+        inputs.poll_menu(&mut app_state.selected);
         info!("Selected: {}", app_state.selected().unwrap());
 
-        let action_pressed = action_button.poll_pressed();
+        let action_pressed = inputs.poll_pressed();
 
         if action_pressed {
             info!("Action button pressed");

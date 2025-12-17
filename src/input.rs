@@ -1,29 +1,39 @@
-use esp_hal::analog::adc::{Adc, AdcConfig, AdcPin, Attenuation};
-use esp_hal::gpio::AnalogPin;
-use esp_hal::gpio::Input;
+use esp_hal::gpio::{Input, InputConfig, Pull};
+use esp_hal::pcnt::{Pcnt, channel};
 use esp_hal::peripherals;
 use ratatui::widgets::ListState;
 
 pub struct Inputs<'d> {
-    pot: Potentiometer<'d, peripherals::GPIO1<'d>>,
+    encoder: RotaryEncoder<'d>,
+    button: DebouncedButton<'d>,
 }
 
 impl<'d> Inputs<'d> {
     pub fn new(
-        adc1: peripherals::ADC1<'d>,
-        pot_pin: peripherals::GPIO1<'d>,
-        menu_items: usize,
+        pcnt: peripherals::PCNT<'d>,
+        clk_pin: peripherals::GPIO15<'d>,
+        dt_pin: peripherals::GPIO17<'d>,
+        sw_pin: peripherals::GPIO16<'d>,
     ) -> Self {
+        let config = InputConfig::default().with_pull(Pull::Up);
+        let clk = Input::new(clk_pin, config);
+        let dt = Input::new(dt_pin, config);
+        let sw = Input::new(sw_pin, config);
+
         Self {
-            pot: Potentiometer::new_adc1(adc1, pot_pin, menu_items),
+            encoder: RotaryEncoder::new(pcnt, clk, dt),
+            button: DebouncedButton::new(sw),
         }
     }
 
     /// Reads inputs and mutates UI state accordingly.
-    ///
-    /// Returns the latest potentiometer reading (raw ADC code).
-    pub fn poll_menu(&mut self, state: &mut ListState) -> u16 {
-        self.pot.poll_menu(state)
+    pub fn poll_menu(&mut self, state: &mut ListState) -> i16 {
+        self.encoder.poll_menu(state)
+    }
+
+    /// Returns `true` once per physical press.
+    pub fn poll_pressed(&mut self) -> bool {
+        self.button.poll_pressed()
     }
 }
 
@@ -78,73 +88,55 @@ impl<'d> DebouncedButton<'d> {
     }
 }
 
-pub struct Potentiometer<'d, PIN>
-where
-    PIN: AnalogPin + esp_hal::analog::adc::AdcChannel,
-{
-    adc: Adc<'d, peripherals::ADC1<'d>, esp_hal::Blocking>,
-    pin: AdcPin<PIN, peripherals::ADC1<'d>>,
-    menu_items: usize,
-    min_raw: Option<u16>,
-    max_raw: Option<u16>,
-    pending_idx: Option<usize>,
-    stable_count: u8,
-    stable_required: u8,
+pub struct RotaryEncoder<'d> {
+    pcnt: Pcnt<'d>,
+    last_count: i16,
 }
 
-impl<'d, PIN> Potentiometer<'d, PIN>
-where
-    PIN: AnalogPin + esp_hal::analog::adc::AdcChannel,
-{
-    pub fn new_adc1(adc1: peripherals::ADC1<'d>, pot_pin: PIN, menu_items: usize) -> Self {
-        let mut adc_config = AdcConfig::new();
-        let pin = adc_config.enable_pin(pot_pin, Attenuation::_11dB);
-        let adc = Adc::new(adc1, adc_config);
+impl<'d> RotaryEncoder<'d> {
+    const FILTER_THRESHOLD_APB_CYCLES: u16 = 800;
 
-        Self {
-            adc,
-            pin,
-            menu_items: menu_items.max(1),
-            min_raw: None,
-            max_raw: None,
-            pending_idx: None,
-            stable_count: 0,
-            // 2 consecutive reads in the same bucket before committing selection.
-            stable_required: 2,
+    pub fn new(pcnt: peripherals::PCNT<'d>, clk: Input<'d>, dt: Input<'d>) -> Self {
+        let pcnt = Pcnt::new(pcnt);
+
+        let clk_signal = clk.peripheral_input();
+        let dt_signal = dt.peripheral_input();
+
+        {
+            let u0 = &pcnt.unit0;
+            u0.set_filter(Some(Self::FILTER_THRESHOLD_APB_CYCLES))
+                .expect("pcnt filter threshold");
+            u0.clear();
+
+            let ch0 = &u0.channel0;
+            ch0.set_ctrl_signal(dt_signal.clone());
+            ch0.set_edge_signal(clk_signal.clone());
+            ch0.set_ctrl_mode(channel::CtrlMode::Reverse, channel::CtrlMode::Keep);
+            ch0.set_input_mode(channel::EdgeMode::Hold, channel::EdgeMode::Increment);
+
+            u0.resume();
         }
+
+        let last_count = pcnt.unit0.counter.get();
+
+        Self { pcnt, last_count }
     }
 
-    pub fn poll_menu(&mut self, state: &mut ListState) -> u16 {
-        let raw: u16 = self.adc.read_blocking(&mut self.pin);
+    /// Updates selection based on encoder delta since the last call.
+    ///
+    /// Returns the raw delta in PCNT counts.
+    pub fn poll_menu(&mut self, state: &mut ListState) -> i16 {
+        let count = self.pcnt.unit0.counter.get();
+        let delta = count.wrapping_sub(self.last_count);
+        self.last_count = count;
 
-        self.min_raw = Some(self.min_raw.map_or(raw, |min| min.min(raw)));
-        self.max_raw = Some(self.max_raw.map_or(raw, |max| max.max(raw)));
-
-        let min = self.min_raw.unwrap_or(raw);
-        let max = self.max_raw.unwrap_or(raw);
-
-        let items = self.menu_items;
-        let span = max.saturating_sub(min);
-        let scaled = (raw.saturating_sub(min) as u32) * (items as u32);
-        let mut idx = (scaled / (span as u32 + 1)) as usize;
-        if idx >= items {
-            idx = items - 1;
+        let steps = i32::from(delta);
+        if steps > 0 {
+            state.scroll_down_by(steps as u16);
+        } else if steps < 0 {
+            state.scroll_up_by((-steps) as u16);
         }
 
-        match self.pending_idx {
-            Some(pending) if pending == idx => {
-                self.stable_count = self.stable_count.saturating_add(1);
-            }
-            _ => {
-                self.pending_idx = Some(idx);
-                self.stable_count = 1;
-            }
-        }
-
-        if self.stable_count >= self.stable_required && state.selected() != Some(idx) {
-            state.select(Some(idx));
-        }
-
-        raw
+        delta
     }
 }
