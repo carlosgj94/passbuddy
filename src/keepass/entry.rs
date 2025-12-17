@@ -22,7 +22,7 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn random_with_group_id(group_id: u32) -> Self {
+    pub fn default_with_group_id(group_id: u32) -> Self {
         let uuid: [u8; 16] = 1u128.to_le_bytes();
 
         let mut title = [0u8; 64];

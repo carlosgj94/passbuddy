@@ -54,7 +54,7 @@ impl NewEntryFormScreen {
     }
 
     fn entry_from_form(&self) -> Entry {
-        let mut entry = Entry::random_with_group_id(self.group_id.unwrap_or(0));
+        let mut entry = Entry::default_with_group_id(self.group_id.unwrap_or(0));
         Self::fill_random_password(&mut entry.password);
 
         if !self.title.is_empty() {
