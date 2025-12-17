@@ -7,8 +7,8 @@ use crate::app::ScreenAction;
 use crate::app::screens::Screen;
 use crate::keepass::{Entry, KeePassDb};
 
-pub const ITEMS: usize = 5;
-pub const LABELS: [&str; ITEMS] = ["Title", "Username", "Password", "Create", "Back"];
+pub const ITEMS: usize = 4;
+pub const LABELS: [&str; ITEMS] = ["Title", "Username", "Create", "Back"];
 
 #[derive(Debug, Format)]
 pub struct NewEntryFormScreen {
@@ -42,11 +42,10 @@ impl Screen for NewEntryFormScreen {
 
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {
         match selected {
-            Some(3) => {
+            Some(2) => {
                 ScreenAction::CreateEntry(Entry::random_with_group_id(self.group_id.unwrap_or(0)))
             }
-            Some(4) => ScreenAction::None,
-            Some(5) => ScreenAction::Pop,
+            Some(3) => ScreenAction::Pop,
             _ => ScreenAction::None,
         }
     }
