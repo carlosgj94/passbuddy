@@ -12,9 +12,9 @@ use alloc::boxed::Box;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
-use embassy_usb::Builder;
 use embassy_usb::class::hid::{HidReaderWriter, State};
 use embassy_usb::driver::Driver;
+use embassy_usb::{Builder, UsbDevice};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Level, Output, OutputConfig};
@@ -172,8 +172,8 @@ async fn main(spawner: Spawner) -> ! {
     let hid = HidReaderWriter::<_, 1, 8>::new(&mut usb_builder, usb_state, usb_config);
     let usb = usb_builder.build();
 
-    // TODO: Spawn some tasks
-    let _ = spawner;
+    // 9. Spawn the tasks
+    spawner.must_spawn(run_usb(usb));
 
     info!("Starting the loop");
     loop {
@@ -197,4 +197,9 @@ async fn main(spawner: Spawner) -> ! {
 
         // do periodic work (or log sparingly)
     }
+}
+
+#[embassy_executor::task]
+async fn run_usb(mut usb: UsbDevice<'static, OtgDriver<'static>>) -> ! {
+    usb.run().await
 }
