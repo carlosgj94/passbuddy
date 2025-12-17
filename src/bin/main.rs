@@ -133,9 +133,6 @@ async fn main(spawner: Spawner) -> ! {
         let before = app_state.selected();
         let input_event = inputs.poll();
         app_state.apply_navigation(input_event.delta);
-        if let Some(selected) = app_state.selected() {
-            info!("Selected: {}", selected);
-        }
 
         let action_pressed = input_event.pressed;
 

@@ -114,7 +114,7 @@ impl Screen for SelectEntryScreen {
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {
         let selected = self.last_rendered_selected.or(selected);
         if selected == Some(0) {
-            return ScreenAction::Push(Screens::new_entry_form(selected.unwrap() as u32));
+            return ScreenAction::Push(Screens::new_entry_form(self.group_id.unwrap_or(0)));
         }
         let Some(selected) = selected else {
             return ScreenAction::None;
