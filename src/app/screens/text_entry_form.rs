@@ -1,5 +1,6 @@
 use defmt::Format;
 use heapless::String;
+use heapless::Vec;
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
@@ -11,7 +12,9 @@ use crate::keepass::KeePassDb;
 
 pub const MAX_TEXT_LEN: usize = 64;
 const KEYBOARD_LINE_CAP: usize = 128;
+const KEYBOARD_POS_CAP: usize = 32;
 const BLINK_PERIOD_FRAMES: usize = 20;
+const KEYBOARD_SCROLL_AHEAD_KEYS: usize = 3;
 
 const LETTERS: [&str; 26] = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S",
@@ -25,6 +28,12 @@ enum KeyboardKey {
     Space,
     Delete,
     Back,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct KeySpan {
+    start: usize,
+    width: usize,
 }
 
 #[derive(Debug, Format)]
@@ -110,12 +119,14 @@ impl TextEntryFormScreen {
 
     fn build_keyboard_line(
         &self,
-        selected_idx: usize,
-    ) -> (String<KEYBOARD_LINE_CAP>, usize, usize, usize) {
+    ) -> (
+        String<KEYBOARD_LINE_CAP>,
+        Vec<KeySpan, KEYBOARD_POS_CAP>,
+        usize,
+    ) {
         let mut line: String<KEYBOARD_LINE_CAP> = String::new();
+        let mut spans: Vec<KeySpan, KEYBOARD_POS_CAP> = Vec::new();
         let mut cursor: usize = 0;
-        let mut selected_start: usize = 0;
-        let mut selected_width: usize = 0;
 
         let count = self.key_count();
         for idx in 0..count {
@@ -131,9 +142,14 @@ impl TextEntryFormScreen {
                 cursor = cursor.saturating_add(1);
             }
 
-            if idx == selected_idx {
-                selected_start = cursor;
-                selected_width = label.len();
+            if spans
+                .push(KeySpan {
+                    start: cursor,
+                    width: label.len(),
+                })
+                .is_err()
+            {
+                break;
             }
 
             if line.push_str(label).is_err() {
@@ -142,7 +158,7 @@ impl TextEntryFormScreen {
             cursor = cursor.saturating_add(label.len());
         }
 
-        (line, selected_start, selected_width, cursor)
+        (line, spans, cursor)
     }
 }
 
@@ -207,8 +223,13 @@ impl Screen for TextEntryFormScreen {
         let selected_idx = selected_raw.min(key_count - 1);
         self.last_rendered_selected = Some(selected_idx);
 
-        let (keyboard_line, selected_start, selected_width, total_width) =
-            self.build_keyboard_line(selected_idx);
+        let (keyboard_line, spans, total_width) = self.build_keyboard_line();
+        let Some(selected_span) = spans.get(selected_idx) else {
+            self.keyboard_scroll_x = 0;
+            return;
+        };
+        let selected_start = selected_span.start;
+        let selected_width = selected_span.width;
 
         let view_width = bottom_inner.width as usize;
         let mut scroll_x = self.keyboard_scroll_x as usize;
@@ -226,6 +247,17 @@ impl Screen for TextEntryFormScreen {
                 scroll_x = selected_start;
             } else if selected_right > visible_right {
                 scroll_x = selected_right.saturating_sub(view_width);
+            }
+
+            if let Some(target_idx) = selected_idx.checked_add(KEYBOARD_SCROLL_AHEAD_KEYS) {
+                let target_idx = target_idx.min(spans.len().saturating_sub(1));
+                if let Some(target_span) = spans.get(target_idx) {
+                    let target_right = target_span.start.saturating_add(target_span.width);
+                    let visible_right = scroll_x.saturating_add(view_width);
+                    if target_right > visible_right {
+                        scroll_x = target_right.saturating_sub(view_width);
+                    }
+                }
             }
 
             let max_scroll = total_width.saturating_sub(view_width);
