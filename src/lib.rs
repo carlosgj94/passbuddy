@@ -9,3 +9,4 @@ pub mod encryption;
 pub mod input;
 pub mod keepass;
 pub mod storage;
+pub mod usb_hid_queue;

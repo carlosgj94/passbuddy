@@ -177,7 +177,7 @@ impl Screen for EntryOptionsScreen {
         }
 
         match self.option_at(selected) {
-            Some(EntryOption::TypePassword) => ScreenAction::None,
+            Some(EntryOption::TypePassword) => ScreenAction::TypeEntryPassword(self.entry_index),
             Some(EntryOption::ChangeName) => {
                 self.pending_field = Some(EntryField::Title);
                 ScreenAction::Push(Screens::text_entry_form(self.title.as_str()))

@@ -9,11 +9,10 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use defmt::info;
+use defmt::{info, warn};
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
-use embassy_usb::class::hid::{HidReaderWriter, State};
-use embassy_usb::driver::Driver;
+use embassy_usb::class::hid::{HidReaderWriter, HidWriter, State};
 use embassy_usb::{Builder, UsbDevice};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::delay::Delay;
@@ -171,9 +170,11 @@ async fn main(spawner: Spawner) -> ! {
     };
     let hid = HidReaderWriter::<_, 1, 8>::new(&mut usb_builder, usb_state, usb_config);
     let usb = usb_builder.build();
+    let (_, writer) = hid.split();
 
     // 9. Spawn the tasks
     spawner.must_spawn(run_usb(usb));
+    spawner.must_spawn(usb_writer(writer));
 
     info!("Starting the loop");
     loop {
@@ -194,12 +195,73 @@ async fn main(spawner: Spawner) -> ! {
                 .draw(|frame| app_state.draw_current_screen(frame))
                 .expect("to draw");
         }
-
-        // do periodic work (or log sparingly)
     }
 }
 
 #[embassy_executor::task]
 async fn run_usb(mut usb: UsbDevice<'static, OtgDriver<'static>>) -> ! {
     usb.run().await
+}
+
+#[embassy_executor::task]
+async fn usb_writer(mut writer: HidWriter<'static, OtgDriver<'static>, 8>) -> () {
+    writer.ready().await;
+    info!("Before writing the boot report");
+    match writer.write(&[0, 0, 4, 0, 0, 0, 0, 0]).await {
+        Ok(()) => {}
+        Err(e) => warn!("Failed to send boot report: {:?}", e),
+    };
+
+    loop {
+        // Press “a” (keycode 0x04)
+        let press = KeyboardReport {
+            modifier: 0,
+            reserved: 0,
+            leds: 0,
+            keycodes: [0x10, 0x04, 0x15, 0x0C, 0x12, 0x2C],
+        };
+        if let Err(e) = writer.write_serialize(&press).await {
+            warn!("send press failed: {:?}", e);
+        } else {
+            info!("sent press");
+        }
+        // Release all keys
+        let release = KeyboardReport {
+            modifier: 0,
+            reserved: 0,
+            leds: 0,
+            keycodes: [0, 0, 0, 0, 0, 0],
+        };
+        if let Err(e) = writer.write_serialize(&release).await {
+            warn!("send release failed: {:?}", e);
+        } else {
+            info!("sent release");
+        }
+        let press = KeyboardReport {
+            modifier: 0,
+            reserved: 0,
+            leds: 0,
+            keycodes: [0x0A, 0x04, 0x04, 0x04, 0x1C, 0x28],
+        };
+        if let Err(e) = writer.write_serialize(&press).await {
+            warn!("send press failed: {:?}", e);
+        } else {
+            info!("sent press");
+        }
+
+        // Release all keys
+        let release = KeyboardReport {
+            modifier: 0,
+            reserved: 0,
+            leds: 0,
+            keycodes: [0, 0, 0, 0, 0, 0],
+        };
+        if let Err(e) = writer.write_serialize(&release).await {
+            warn!("send release failed: {:?}", e);
+        } else {
+            info!("sent release");
+        }
+
+        Timer::after(Duration::from_millis(500)).await;
+    }
 }

@@ -104,6 +104,7 @@ pub enum ScreenAction {
     CreateEntry(Entry),
     TextEntrySubmit(String<{ screens::text_entry_form::MAX_TEXT_LEN }>),
     ToggleEntryAutotype(usize),
+    TypeEntryPassword(usize),
 }
 
 #[derive(Debug)]
@@ -298,6 +299,22 @@ impl AppState {
                     }
                 }
                 self.pop_screen();
+            }
+            ScreenAction::TypeEntryPassword(entry_index) => {
+                if let Some(kpdb) = self.kpdb.as_mut() {
+                    if let Some(entry) = kpdb.entries.get(entry_index).unwrap() {
+                        let pass_bytes = entry.password;
+
+                        // Convert the pass bytes to str
+                        let pass_end = pass_bytes
+                            .iter()
+                            .position(|&b| b == 0)
+                            .unwrap_or(pass_bytes.len());
+                        let Ok(pass) = core::str::from_utf8(&pass_bytes[..pass_end]) else {
+                            return;
+                        };
+                    }
+                }
             }
         }
     }
