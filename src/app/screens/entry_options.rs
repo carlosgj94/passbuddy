@@ -140,11 +140,20 @@ impl Screen for EntryOptionsScreen {
     }
 
     fn draw(&mut self, frame: &mut Frame, selected: &mut ListState, kpdb: &KeePassDb) {
+        self.sync_from_entry(kpdb);
+
+        let mut title_padded: String<{ MAX_TEXT_LEN + 2 }> = String::new();
+        if self.entry_present && !self.title.is_empty() {
+            let _ = title_padded.push(' ');
+            let _ = title_padded.push_str(self.title.as_str());
+            let _ = title_padded.push(' ');
+        } else {
+            let _ = title_padded.push_str(" Entry ");
+        }
+
         let outer_block = Block::bordered()
             .border_style(Style::new().bold().green())
-            .title(" Entry ");
-
-        self.sync_from_entry(kpdb);
+            .title(title_padded.as_str());
 
         let mut items: Vec<&str, ITEMS> = Vec::new();
         if self.entry_present {
@@ -186,7 +195,9 @@ impl Screen for EntryOptionsScreen {
                 self.pending_field = Some(EntryField::Username);
                 ScreenAction::Push(Screens::text_entry_form(self.username.as_str()))
             }
-            Some(EntryOption::ViewPassword) => ScreenAction::None,
+            Some(EntryOption::ViewPassword) => {
+                ScreenAction::Push(Screens::view_password(self.entry_index))
+            }
             Some(EntryOption::ToggleAutotype) => {
                 ScreenAction::ToggleEntryAutotype(self.entry_index)
             }
