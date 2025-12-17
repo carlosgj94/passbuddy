@@ -6,12 +6,20 @@
     holding buffers for the duration of a data transfer."
 )]
 
+extern crate alloc;
+
+use alloc::boxed::Box;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
+use embassy_usb::Builder;
+use embassy_usb::class::hid::{HidReaderWriter, State};
+use embassy_usb::driver::Driver;
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::delay::Delay;
 use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::otg_fs::Usb;
+use esp_hal::otg_fs::asynch::{Config, Driver as OtgDriver};
 use esp_hal::spi::{Mode as SpiMode, master::Config as SpiConfig, master::Spi};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
@@ -21,6 +29,7 @@ use passbuddy::app::AppState;
 use passbuddy::keepass::KeePassDb;
 use passbuddy::storage::layout::StorageLayout;
 use passbuddy::storage::region::DataRegion;
+use usbd_hid::descriptor::{KeyboardReport, SerializedDescriptor};
 use {esp_backtrace as _, esp_println as _};
 
 use passbuddy::input::Inputs;
@@ -56,6 +65,7 @@ async fn main(spawner: Spawner) -> ! {
     .unwrap()
     .with_sck(peripherals.GPIO6)
     .with_mosi(peripherals.GPIO7);
+    let usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
 
     // 2. Let's initialize the display
     info!("Initializing display");
@@ -123,6 +133,44 @@ async fn main(spawner: Spawner) -> ! {
     info!("Indexing the keepass database");
     let kpdb = KeePassDb::new(&mut storage, keepass_region).unwrap();
     let mut app_state = app_state.with_kpdb(kpdb);
+
+    // 8. Initialize the USB device
+    // Creating the driver from the hal
+    let ep_out_buffer = Box::leak(Box::new([0u8; 124]));
+    let config = Config::default();
+    let otg_driver = OtgDriver::new(usb, ep_out_buffer, config);
+
+    let mut usb_config = embassy_usb::Config::new(0xa0de, 0xdafe);
+    usb_config.manufacturer = Some("Passbuddy");
+    usb_config.product = Some("Passbuddy USB HID");
+    usb_config.serial_number = Some("1234567890");
+    usb_config.max_power = 100;
+    usb_config.max_packet_size_0 = 64;
+
+    let config_descriptor_buffer = Box::leak(Box::new([0; 256]));
+    let bos_descriptor_buffer = Box::leak(Box::new([0; 256]));
+    let msos_descriptor_buffer = Box::leak(Box::new([0; 256]));
+    let control_buffer = Box::leak(Box::new([0; 64]));
+
+    let usb_state = Box::leak(Box::new(State::new()));
+
+    let mut usb_builder = Builder::new(
+        otg_driver,
+        usb_config,
+        config_descriptor_buffer,
+        bos_descriptor_buffer,
+        msos_descriptor_buffer,
+        control_buffer,
+    );
+
+    let usb_config = embassy_usb::class::hid::Config {
+        report_descriptor: KeyboardReport::desc(),
+        request_handler: None,
+        poll_ms: 60,
+        max_packet_size: 8,
+    };
+    let hid = HidReaderWriter::<_, 1, 8>::new(&mut usb_builder, usb_state, usb_config);
+    let usb = usb_builder.build();
 
     // TODO: Spawn some tasks
     let _ = spawner;
