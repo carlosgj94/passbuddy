@@ -13,6 +13,7 @@ pub use terminal::{init_terminal, init_terminal_with_flush};
 use screens::Screen;
 
 use crate::keepass::{Entry, Group, KeePassDb};
+use crate::usb_hid_queue::try_queue_type_text;
 
 #[derive(Debug, Format)]
 pub enum Screens {
@@ -313,6 +314,7 @@ impl AppState {
                         let Ok(pass) = core::str::from_utf8(&pass_bytes[..pass_end]) else {
                             return;
                         };
+                        try_queue_type_text(pass).unwrap_or(());
                     }
                 }
             }

@@ -28,11 +28,12 @@ use passbuddy::app::AppState;
 use passbuddy::keepass::KeePassDb;
 use passbuddy::storage::layout::StorageLayout;
 use passbuddy::storage::region::DataRegion;
+use passbuddy::usb_hid_queue::UsbHidCommand;
 use usbd_hid::descriptor::{KeyboardReport, SerializedDescriptor};
 use {esp_backtrace as _, esp_println as _};
 
 use passbuddy::input::Inputs;
-use passbuddy::{app, display};
+use passbuddy::{app, display, usb_hid_queue};
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
@@ -206,26 +207,60 @@ async fn run_usb(mut usb: UsbDevice<'static, OtgDriver<'static>>) -> ! {
 #[embassy_executor::task]
 async fn usb_writer(mut writer: HidWriter<'static, OtgDriver<'static>, 8>) -> () {
     writer.ready().await;
-    info!("Before writing the boot report");
-    match writer.write(&[0, 0, 4, 0, 0, 0, 0, 0]).await {
-        Ok(()) => {}
-        Err(e) => warn!("Failed to send boot report: {:?}", e),
+    info!("USB HID writer ready");
+
+    let release = KeyboardReport {
+        modifier: 0,
+        reserved: 0,
+        leds: 0,
+        keycodes: [0, 0, 0, 0, 0, 0],
     };
+    let _ = writer.write_serialize(&release).await;
 
     loop {
-        // Press “a” (keycode 0x04)
+        match usb_hid_queue::receive().await {
+            UsbHidCommand::TypeText(text) => {
+                writer.ready().await;
+                type_text(&mut writer, text.as_str()).await;
+            }
+        }
+    }
+}
+
+const MOD_LSHIFT: u8 = 0x02;
+
+fn hid_key_for_char(ch: char) -> Option<(u8, u8)> {
+    let byte = u8::try_from(ch).ok()?;
+    match ch {
+        'a'..='z' => Some((0, 0x04 + (byte - b'a'))),
+        'A'..='Z' => Some((MOD_LSHIFT, 0x04 + (byte - b'A'))),
+        '1'..='9' => Some((0, 0x1e + (byte - b'1'))),
+        '0' => Some((0, 0x27)),
+        '-' => Some((0, 0x2d)),
+        '_' => Some((MOD_LSHIFT, 0x2d)),
+        ' ' => Some((0, 0x2c)),
+        _ => None,
+    }
+}
+
+async fn type_text(writer: &mut HidWriter<'static, OtgDriver<'static>, 8>, text: &str) {
+    for ch in text.chars() {
+        let Some((modifier, keycode)) = hid_key_for_char(ch) else {
+            warn!("USB HID: unsupported character");
+            continue;
+        };
+
         let press = KeyboardReport {
-            modifier: 0,
+            modifier,
             reserved: 0,
             leds: 0,
-            keycodes: [0x10, 0x04, 0x15, 0x0C, 0x12, 0x2C],
+            keycodes: [keycode, 0, 0, 0, 0, 0],
         };
         if let Err(e) = writer.write_serialize(&press).await {
-            warn!("send press failed: {:?}", e);
-        } else {
-            info!("sent press");
+            warn!("USB HID press failed: {:?}", e);
+            return;
         }
-        // Release all keys
+
         let release = KeyboardReport {
             modifier: 0,
             reserved: 0,
@@ -233,35 +268,10 @@ async fn usb_writer(mut writer: HidWriter<'static, OtgDriver<'static>, 8>) -> ()
             keycodes: [0, 0, 0, 0, 0, 0],
         };
         if let Err(e) = writer.write_serialize(&release).await {
-            warn!("send release failed: {:?}", e);
-        } else {
-            info!("sent release");
-        }
-        let press = KeyboardReport {
-            modifier: 0,
-            reserved: 0,
-            leds: 0,
-            keycodes: [0x0A, 0x04, 0x04, 0x04, 0x1C, 0x28],
-        };
-        if let Err(e) = writer.write_serialize(&press).await {
-            warn!("send press failed: {:?}", e);
-        } else {
-            info!("sent press");
+            warn!("USB HID release failed: {:?}", e);
+            return;
         }
 
-        // Release all keys
-        let release = KeyboardReport {
-            modifier: 0,
-            reserved: 0,
-            leds: 0,
-            keycodes: [0, 0, 0, 0, 0, 0],
-        };
-        if let Err(e) = writer.write_serialize(&release).await {
-            warn!("send release failed: {:?}", e);
-        } else {
-            info!("sent release");
-        }
-
-        Timer::after(Duration::from_millis(500)).await;
+        Timer::after(Duration::from_millis(2)).await;
     }
 }
