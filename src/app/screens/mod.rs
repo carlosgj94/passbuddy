@@ -1,4 +1,5 @@
 pub mod action_completed;
+pub mod boot_splash;
 pub mod entry_options;
 pub mod new_entry_form;
 pub mod new_group_form;
