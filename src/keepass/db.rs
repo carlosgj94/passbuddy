@@ -10,5 +10,5 @@ pub struct KeePassDb {
     pub signature2: u32, // expect 0xB54BFB65
     pub header: KDBHeader,
     pub groups: [Option<Group>; 4],
-    pub entries: [Option<Entry>; 128],
+    pub entries: [Option<Entry>; 256],
 }

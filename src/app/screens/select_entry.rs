@@ -8,7 +8,7 @@ use crate::app::screens::Screen;
 use crate::app::{ScreenAction, Screens};
 use crate::keepass::KeePassDb;
 
-pub const ITEMS: usize = 130; // Create entry + up to 128 entries + Back
+pub const ITEMS: usize = 258; // Create entry + up to 256 entries + Back
 
 #[derive(Debug, Format)]
 pub struct SelectEntryScreen {
@@ -16,7 +16,7 @@ pub struct SelectEntryScreen {
     back_position: usize,
     initial_selection_applied: bool,
     last_rendered_selected: Option<usize>,
-    entry_indices: Vec<usize, 128>,
+    entry_indices: Vec<usize, 256>,
 }
 
 impl SelectEntryScreen {

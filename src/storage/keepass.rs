@@ -16,7 +16,7 @@ const SIGNATURE1_OFFSET_REL: u32 = 0;
 const SIGNATURE2_OFFSET_REL: u32 = 4;
 const HEADER_OFFSET_REL: u32 = 8;
 const MAX_GROUPS: u32 = 4;
-const MAX_ENTRIES: u32 = 128;
+const MAX_ENTRIES: u32 = 256;
 
 const fn groups_offset_rel() -> u32 {
     HEADER_OFFSET_REL + HEADER_SIZE as u32
@@ -172,7 +172,7 @@ impl KeePassDb {
         // 4. We get the entries
         info!("Getting the entries");
         let mut entry_buffer = [0u8; ENTRY_SIZE];
-        let mut entries: [Option<Entry>; 128] = [None; 128];
+        let mut entries: [Option<Entry>; 256] = [None; 256];
         for i in 0..header.num_entries as usize {
             storage
                 .read(
