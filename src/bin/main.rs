@@ -112,8 +112,8 @@ async fn main(spawner: Spawner) -> ! {
     info!("Setting the inputs");
     let mut inputs = Inputs::new(
         peripherals.PCNT,
-        peripherals.GPIO15,
         peripherals.GPIO17,
+        peripherals.GPIO15,
         peripherals.GPIO16,
     );
     //

@@ -16,8 +16,8 @@ pub struct Inputs<'d> {
 impl<'d> Inputs<'d> {
     pub fn new(
         pcnt: peripherals::PCNT<'d>,
-        clk_pin: peripherals::GPIO15<'d>,
-        dt_pin: peripherals::GPIO17<'d>,
+        clk_pin: peripherals::GPIO17<'d>,
+        dt_pin: peripherals::GPIO15<'d>,
         sw_pin: peripherals::GPIO16<'d>,
     ) -> Self {
         let config = InputConfig::default().with_pull(Pull::Up);
