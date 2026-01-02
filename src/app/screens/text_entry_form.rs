@@ -12,14 +12,15 @@ use crate::keepass::KeePassDb;
 
 pub const MAX_TEXT_LEN: usize = 64;
 const KEYBOARD_LINE_CAP: usize = 128;
-const KEYBOARD_POS_CAP: usize = 32;
 const BLINK_PERIOD_FRAMES: usize = 20;
-const KEYBOARD_SCROLL_MARGIN_KEYS: usize = 3;
+const KEYBOARD_SCROLL_MARGIN_KEYS: usize = 2;
 
-const LETTERS: [&str; 26] = [
+const LETTERS: [&str; 39] = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S",
-    "T", "U", "V", "W", "X", "Y", "Z",
+    "T", "U", "V", "W", "X", "Y", "Z", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "_", "@",
+    ".",
 ];
+const KEYBOARD_POS_CAP: usize = LETTERS.len() + 4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum KeyboardKey {
@@ -110,7 +111,7 @@ impl TextEntryFormScreen {
     fn label_for_key(key: KeyboardKey) -> &'static str {
         match key {
             KeyboardKey::Submit => "Submit",
-            KeyboardKey::Letter(i) => LETTERS[i as usize],
+            KeyboardKey::Letter(i) => LETTERS.get(i as usize).copied().unwrap_or("?"),
             KeyboardKey::Space => "<space>",
             KeyboardKey::Delete => "Del",
             KeyboardKey::Back => "Back",
@@ -311,8 +312,11 @@ impl Screen for TextEntryFormScreen {
         match self.key_at(selected) {
             Some(KeyboardKey::Submit) => ScreenAction::TextEntrySubmit(self.text.clone()),
             Some(KeyboardKey::Letter(i)) => {
-                let ch = (b'A' + i) as char;
-                let _ = self.text.push(ch);
+                if let Some(label) = LETTERS.get(i as usize) {
+                    if let Some(ch) = label.chars().next() {
+                        let _ = self.text.push(ch);
+                    }
+                }
                 ScreenAction::None
             }
             Some(KeyboardKey::Space) => {
