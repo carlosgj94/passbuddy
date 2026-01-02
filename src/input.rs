@@ -1,5 +1,4 @@
 use esp_hal::gpio::{Input, InputConfig, Pull};
-use esp_hal::pcnt::{Pcnt, channel};
 use esp_hal::peripherals;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -15,7 +14,6 @@ pub struct Inputs<'d> {
 
 impl<'d> Inputs<'d> {
     pub fn new(
-        pcnt: peripherals::PCNT<'d>,
         clk_pin: peripherals::GPIO17<'d>,
         dt_pin: peripherals::GPIO15<'d>,
         sw_pin: peripherals::GPIO16<'d>,
@@ -26,7 +24,7 @@ impl<'d> Inputs<'d> {
         let sw = Input::new(sw_pin, config);
 
         Self {
-            encoder: RotaryEncoder::new(pcnt, clk, dt),
+            encoder: RotaryEncoder::new(clk, dt),
             button: DebouncedButton::new(sw),
         }
     }
@@ -36,6 +34,14 @@ impl<'d> Inputs<'d> {
             delta: self.encoder.poll_delta(),
             pressed: self.button.poll_pressed(),
         }
+    }
+
+    pub fn poll_encoder_delta(&mut self) -> i16 {
+        self.encoder.poll_delta()
+    }
+
+    pub fn poll_button_pressed(&mut self) -> bool {
+        self.button.poll_pressed()
     }
 }
 
@@ -91,44 +97,55 @@ impl<'d> DebouncedButton<'d> {
 }
 
 pub struct RotaryEncoder<'d> {
-    pcnt: Pcnt<'d>,
-    last_count: i16,
+    clk: Input<'d>,
+    dt: Input<'d>,
+    state: u8,
+    accum: i8,
 }
 
 impl<'d> RotaryEncoder<'d> {
-    const FILTER_THRESHOLD_APB_CYCLES: u16 = 800;
+    const STEP_THRESHOLD: i8 = 4;
+    const TRANSITION_TABLE: [i8; 16] = [0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0];
 
-    pub fn new(pcnt: peripherals::PCNT<'d>, clk: Input<'d>, dt: Input<'d>) -> Self {
-        let pcnt = Pcnt::new(pcnt);
-
-        let clk_signal = clk.peripheral_input();
-        let dt_signal = dt.peripheral_input();
-
-        {
-            let u0 = &pcnt.unit0;
-            u0.set_filter(Some(Self::FILTER_THRESHOLD_APB_CYCLES))
-                .expect("pcnt filter threshold");
-            u0.clear();
-
-            let ch0 = &u0.channel0;
-            ch0.set_ctrl_signal(dt_signal.clone());
-            ch0.set_edge_signal(clk_signal.clone());
-            ch0.set_ctrl_mode(channel::CtrlMode::Reverse, channel::CtrlMode::Keep);
-            ch0.set_input_mode(channel::EdgeMode::Hold, channel::EdgeMode::Increment);
-
-            u0.resume();
+    pub fn new(clk: Input<'d>, dt: Input<'d>) -> Self {
+        let state = Self::pin_state(&clk, &dt);
+        Self {
+            clk,
+            dt,
+            state,
+            accum: 0,
         }
-
-        let last_count = pcnt.unit0.counter.get();
-
-        Self { pcnt, last_count }
     }
 
     /// Returns the encoder delta (PCNT counts) since the last call.
     pub fn poll_delta(&mut self) -> i16 {
-        let count = self.pcnt.unit0.counter.get();
-        let delta = count.wrapping_sub(self.last_count);
-        self.last_count = count;
-        delta
+        let pin_state = Self::pin_state(&self.clk, &self.dt);
+        self.state = ((self.state << 2) | pin_state) & 0x0f;
+        let delta = Self::TRANSITION_TABLE[self.state as usize];
+
+        if delta != 0 {
+            self.accum = self.accum.saturating_add(delta);
+            if self.accum >= Self::STEP_THRESHOLD {
+                self.accum = 0;
+                return 1;
+            }
+            if self.accum <= -Self::STEP_THRESHOLD {
+                self.accum = 0;
+                return -1;
+            }
+        }
+
+        0
+    }
+
+    fn pin_state(clk: &Input<'d>, dt: &Input<'d>) -> u8 {
+        let mut state = 0u8;
+        if clk.is_high() {
+            state |= 0x01;
+        }
+        if dt.is_high() {
+            state |= 0x02;
+        }
+        state
     }
 }

@@ -110,12 +110,7 @@ async fn main(spawner: Spawner) -> ! {
 
     // 5. Let's initialize the input devices
     info!("Setting the inputs");
-    let mut inputs = Inputs::new(
-        peripherals.PCNT,
-        peripherals.GPIO17,
-        peripherals.GPIO15,
-        peripherals.GPIO16,
-    );
+    let mut inputs = Inputs::new(peripherals.GPIO17, peripherals.GPIO15, peripherals.GPIO16);
     //
     // 6. Get the key to decrypt the storage
     //
@@ -133,22 +128,32 @@ async fn main(spawner: Spawner) -> ! {
     usb_hid::spawn(&spawner, usb);
 
     info!("Starting the loop");
+    const INPUT_TICK_MS: u64 = 2;
+    const UI_TICK_MS: u64 = 50;
+    let mut ui_elapsed_ms = 0u64;
+
     loop {
-        Timer::after(Duration::from_millis(50)).await;
-        let input_event = inputs.poll();
-        app_state.apply_navigation(input_event.delta);
-
-        let action_pressed = input_event.pressed;
-
-        if action_pressed {
-            info!("Action button pressed");
-            app_state.on_select(&mut storage);
+        Timer::after(Duration::from_millis(INPUT_TICK_MS)).await;
+        let delta = inputs.poll_encoder_delta();
+        if delta != 0 {
+            app_state.apply_navigation(delta);
         }
 
-        app_state.on_tick(&mut storage);
+        ui_elapsed_ms = ui_elapsed_ms.saturating_add(INPUT_TICK_MS);
+        if ui_elapsed_ms >= UI_TICK_MS {
+            ui_elapsed_ms = ui_elapsed_ms.saturating_sub(UI_TICK_MS);
+            app_state.apply_navigation(0);
 
-        terminal
-            .draw(|frame| app_state.draw_current_screen(frame))
-            .expect("to draw");
+            if inputs.poll_button_pressed() {
+                info!("Action button pressed");
+                app_state.on_select(&mut storage);
+            }
+
+            app_state.on_tick(&mut storage);
+
+            terminal
+                .draw(|frame| app_state.draw_current_screen(frame))
+                .expect("to draw");
+        }
     }
 }
