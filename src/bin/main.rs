@@ -90,7 +90,7 @@ async fn main(spawner: Spawner) -> ! {
 
     // Debug helper: wipe the storage layout sector. If enabled, keep it *before*
     // `run_healthcheck()` so the layout gets bootstrapped again.
-    StorageLayout::wipe_layout(&mut storage).unwrap();
+    // StorageLayout::wipe_layout(&mut storage).unwrap();
 
     match StorageLayout::run_healthcheck(&mut storage) {
         Ok(_) => {
