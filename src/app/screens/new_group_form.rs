@@ -9,8 +9,8 @@ use crate::app::screens::text_entry_form::MAX_TEXT_LEN;
 use crate::app::{ScreenAction, Screens};
 use crate::keepass::{Group, KeePassDb};
 
-pub const ITEMS: usize = 4;
-pub const LABELS: [&str; ITEMS] = ["Name", "Icon", "Create", "Back"];
+pub const ITEMS: usize = 3;
+pub const LABELS: [&str; ITEMS] = ["Name", "Create", "Back"];
 
 #[derive(Debug, Format)]
 pub struct NewGroupForm {
@@ -61,8 +61,8 @@ impl Screen for NewGroupForm {
     fn on_select(&mut self, selected: Option<usize>) -> ScreenAction {
         match selected {
             Some(0) => ScreenAction::Push(Screens::text_entry_form(self.name.as_str())),
-            Some(2) => ScreenAction::CreateGroup(self.group_from_form()),
-            Some(3) => ScreenAction::Pop,
+            Some(1) => ScreenAction::CreateGroup(self.group_from_form()),
+            Some(2) => ScreenAction::Pop,
             _ => ScreenAction::None,
         }
     }
