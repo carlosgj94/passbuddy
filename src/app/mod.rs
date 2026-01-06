@@ -146,6 +146,7 @@ pub enum ScreenAction {
     TextEntrySubmit(String<{ screens::text_entry_form::MAX_TEXT_LEN }>),
     ToggleEntryAutotype(usize),
     TypeEntryPassword(usize),
+    DeleteEntry(usize),
 }
 
 #[derive(Debug)]
@@ -383,6 +384,20 @@ impl AppState {
                         };
                         try_queue_type_text(pass).unwrap_or(());
                     }
+                }
+            }
+            ScreenAction::DeleteEntry(entry_index) => {
+                let mut success = false;
+                if let Some(kpdb) = self.kpdb.as_mut() {
+                    success = match kpdb.delete_entry(entry_index, storage) {
+                        Ok(_) => true,
+                        Err(_) => false,
+                    }
+                }
+
+                self.pop_screen();
+                if success {
+                    self.push_screen(Screens::action_completed("Entry deleted"));
                 }
             }
         }

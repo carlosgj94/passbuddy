@@ -10,7 +10,7 @@ use crate::app::screens::text_entry_form::MAX_TEXT_LEN;
 use crate::app::{ScreenAction, Screens};
 use crate::keepass::KeePassDb;
 
-pub const ITEMS: usize = 6;
+pub const ITEMS: usize = 7;
 const AUTOTYPE_LABEL_CAP: usize = 20;
 
 #[derive(Clone, Copy, Debug, Format, Eq, PartialEq)]
@@ -27,6 +27,7 @@ enum EntryOption {
     ViewPassword,
     ToggleAutotype,
     Back,
+    DeleteEntry,
 }
 
 #[derive(Debug, Format)]
@@ -62,7 +63,7 @@ impl EntryOptionsScreen {
             return 1;
         };
 
-        let mut count = 5usize; // name, username, view, autotype, back
+        let mut count = 6usize; // name, username, view, autotype, back, delete
         if entry.autotype {
             count = count.saturating_add(1);
         }
@@ -94,6 +95,7 @@ impl EntryOptionsScreen {
             2 => Some(EntryOption::ViewPassword),
             3 => Some(EntryOption::ToggleAutotype),
             4 => Some(EntryOption::Back),
+            5 => Some(EntryOption::DeleteEntry),
             _ => None,
         }
     }
@@ -167,6 +169,10 @@ impl Screen for EntryOptionsScreen {
         }
         let _ = items.push("Back");
 
+        if self.entry_present {
+            let _ = items.push("Delete entry");
+        }
+
         let list = List::new(items)
             .block(outer_block)
             .style(Style::new())
@@ -202,6 +208,7 @@ impl Screen for EntryOptionsScreen {
                 ScreenAction::ToggleEntryAutotype(self.entry_index)
             }
             Some(EntryOption::Back) => ScreenAction::Pop,
+            Some(EntryOption::DeleteEntry) => ScreenAction::DeleteEntry(self.entry_index),
             None => ScreenAction::None,
         }
     }

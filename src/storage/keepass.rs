@@ -306,10 +306,10 @@ impl KeePassDb {
         storage: &mut FlashStorage,
     ) -> Result<(), KDBError> {
         if entry_index >= MAX_ENTRIES as usize {
-            return Err(KDBError::DatabaseIntegrityError);
+            return Err(KDBError::EntryNotFound);
         }
         if entry_index >= self.header.num_entries as usize {
-            return Err(KDBError::DatabaseIntegrityError);
+            return Err(KDBError::EntryNotFound);
         }
 
         let relative_offset = entries_offset_rel() + ((entry_index as u32) * ENTRY_SIZE as u32);
@@ -321,6 +321,77 @@ impl KeePassDb {
             .map_err(|_| KDBError::DatabaseIntegrityError)?;
 
         self.entries[entry_index] = Some(entry);
+        Ok(())
+    }
+
+    pub fn delete_entry(
+        &mut self,
+        entry_index: usize,
+        storage: &mut FlashStorage,
+    ) -> Result<(), KDBError> {
+        // 0. Check the entry actually exists
+        if entry_index >= MAX_ENTRIES as usize {
+            return Err(KDBError::EntryNotFound);
+        }
+        if entry_index >= self.header.num_entries as usize {
+            return Err(KDBError::EntryNotFound);
+        }
+
+        // 1. Get the offsets
+        let relative_offset = entries_offset_rel() + ((entry_index as u32) * ENTRY_SIZE as u32);
+        let entry_offset = checked_absolute(self.storage, relative_offset, ENTRY_SIZE)?;
+
+        // 2. Remove from storage. We should set everything to zero, just to make sure when copying we don't keep any unnecesary data
+        storage
+            .write(entry_offset, &[0; ENTRY_SIZE])
+            .map_err(|_| KDBError::DatabaseIntegrityError)?;
+
+        // 3. Shift the following entries one position to the front (skip if deleting the last).
+        let last_index = (self.header.num_entries - 1) as usize;
+        if entry_index < last_index {
+            let mut current_entry_offset = entry_offset;
+
+            for _ in entry_index..last_index {
+                let next_entry_offset = current_entry_offset + ENTRY_SIZE as u32;
+                let mut entry_buffer = [0u8; ENTRY_SIZE];
+                let _ = storage.read(next_entry_offset, &mut entry_buffer);
+                storage
+                    .write(current_entry_offset, &entry_buffer)
+                    .map_err(|_| KDBError::DatabaseIntegrityError)?;
+
+                current_entry_offset = next_entry_offset;
+            }
+        }
+
+        // 4. Update the kpdb
+        if entry_index < last_index {
+            for i in entry_index..last_index {
+                self.entries[i] = self.entries[i + 1];
+            }
+        }
+        self.entries[last_index] = None;
+
+        // Clear the last entry slot in storage after any shift.
+        let last_entry_offset = checked_absolute(
+            self.storage,
+            entries_offset_rel() + ((last_index as u32) * ENTRY_SIZE as u32),
+            ENTRY_SIZE,
+        )?;
+        storage
+            .write(last_entry_offset, &[0; ENTRY_SIZE])
+            .map_err(|_| KDBError::DatabaseIntegrityError)?;
+
+        // 5. Substract 1 to the num of entries in memory
+        self.header.num_entries -= 1;
+
+        // 6. Update the header in storage
+        storage
+            .write(
+                checked_absolute(self.storage, HEADER_OFFSET_REL, HEADER_SIZE)?,
+                &self.header.to_bytes(),
+            )
+            .map_err(|_| KDBError::DatabaseIntegrityError)?;
+
         Ok(())
     }
 }

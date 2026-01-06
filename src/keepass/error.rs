@@ -2,4 +2,6 @@
 pub enum KDBError {
     /// The database is corrupted
     DatabaseIntegrityError,
+    /// The item select wasn't found
+    EntryNotFound,
 }
