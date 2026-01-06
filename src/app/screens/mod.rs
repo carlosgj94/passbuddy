@@ -3,6 +3,7 @@ pub mod boot_splash;
 pub mod entry_options;
 pub mod new_entry_form;
 pub mod new_group_form;
+pub mod pin_entry;
 pub mod select_entry;
 pub mod select_group;
 pub mod text_entry_form;

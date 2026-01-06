@@ -25,6 +25,7 @@ pub enum Screens {
     TextEntryForm(screens::text_entry_form::TextEntryFormScreen),
     ActionCompleted(screens::action_completed::ActionCompletedScreen),
     BootSplash(screens::boot_splash::BootSplashScreen),
+    PinEntry(screens::pin_entry::PinEntryScreen),
     ViewPassword(screens::view_password::ViewPasswordScreen),
 }
 
@@ -69,6 +70,10 @@ impl Screens {
         Self::BootSplash(screens::boot_splash::BootSplashScreen::new())
     }
 
+    pub fn pin_entry() -> Self {
+        Self::PinEntry(screens::pin_entry::PinEntryScreen::new())
+    }
+
     pub fn view_password(entry_index: usize) -> Self {
         Self::ViewPassword(screens::view_password::ViewPasswordScreen::new(entry_index))
     }
@@ -83,6 +88,7 @@ impl Screens {
             Screens::TextEntryForm(screen) => screen.item_count(),
             Screens::ActionCompleted(_) => 0,
             Screens::BootSplash(_) => 0,
+            Screens::PinEntry(screen) => screen.item_count(),
             Screens::ViewPassword(_) => 0,
         }
     }
@@ -103,6 +109,7 @@ impl Screen for Screens {
             Screens::TextEntryForm(screen) => screen.draw(frame, selected, keepass),
             Screens::ActionCompleted(screen) => screen.draw(frame, selected, keepass),
             Screens::BootSplash(screen) => screen.draw(frame, selected, keepass),
+            Screens::PinEntry(screen) => screen.draw(frame, selected, keepass),
             Screens::ViewPassword(screen) => screen.draw(frame, selected, keepass),
         }
     }
@@ -117,6 +124,7 @@ impl Screen for Screens {
             Screens::TextEntryForm(screen) => screen.on_select(selected),
             Screens::ActionCompleted(screen) => screen.on_select(selected),
             Screens::BootSplash(screen) => screen.on_select(selected),
+            Screens::PinEntry(screen) => screen.on_select(selected),
             Screens::ViewPassword(screen) => screen.on_select(selected),
         }
     }
@@ -131,6 +139,7 @@ impl Screen for Screens {
             Screens::TextEntryForm(screen) => screen.on_tick(),
             Screens::ActionCompleted(screen) => screen.on_tick(),
             Screens::BootSplash(screen) => screen.on_tick(),
+            Screens::PinEntry(screen) => screen.on_tick(),
             Screens::ViewPassword(screen) => screen.on_tick(),
         }
     }
@@ -160,7 +169,8 @@ impl AppState {
     pub fn new() -> Self {
         let mut screen_stack: [Option<Screens>; 8] = core::array::from_fn(|_| None);
         screen_stack[0] = Some(Screens::select_group());
-        screen_stack[1] = Some(Screens::boot_splash());
+        screen_stack[1] = Some(Screens::pin_entry());
+        screen_stack[2] = Some(Screens::boot_splash());
         let mut selected = ListState::default();
         selected.select_first();
 
